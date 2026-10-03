@@ -1,6 +1,6 @@
 # Dolibarr TMS — arkitektur og datakortlægning
 
-Beslutningsgrundlag • 4. oktober 2026 • Version 2.2 — test, drift, kommunikation og releasegrundlag
+Beslutningsgrundlag • 4. oktober 2026 • Version 2.3 — Dolibarr 24.0.2 fastlagt som målversion
 
 ## Indhold
 
@@ -40,7 +40,7 @@ Byg ét eksternt Dolibarr-modul, `training`, som en modulær PHP-applikation i `
 
 Én autoritativ kilde pr. oplysning. Pris og program kopieres kun som bevidste, tidsbundne snapshots, når en aftale indgås eller et hold publiceres. Dashboardtal beregnes fra disse kilder.
 
-Modulet skal udvikles fra bunden. De ti screenshots er krav- og designreferencer, ikke dokumentation for et eksisterende modul. Fase 0-standardkortlægningen er udført gennem officielle kilder; resultatet står i afsnit 14. Installationsversion, runtime og betalingsudbyder er endnu ikke oplyst. Der er ikke udført database- eller betalingstests. Alle navne med `llx_training_*` er **foreslåede tabeller**, ikke konstaterede eksisterende tabeller. `llx_` er dokumentationspræfiks; implementationen bruger Dolibarrs konfigurerede databasepræfiks.
+Modulet skal udvikles fra bunden. De ti screenshots er krav- og designreferencer, ikke dokumentation for et eksisterende modul. Fase 0-standardkortlægningen er udført gennem officielle kilder; resultatet står i afsnit 14. Brugeren har valgt Dolibarr 24.0.2 som målversion. PHP, database, driftsmiljø og betalingsudbyder er endnu ikke oplyst. Kompatibilitet med 24.0.2 er ikke teknisk verificeret. Der er ikke udført database- eller betalingstests. Alle navne med `llx_training_*` er **foreslåede tabeller**, ikke konstaterede eksisterende tabeller. `llx_` er dokumentationspræfiks; implementationen bruger Dolibarrs konfigurerede databasepræfiks.
 
 ## 2. Hvad materialet faktisk dokumenterer
 
@@ -321,7 +321,7 @@ Dette er observationer om skærmenes konsistens, ikke en konstatering af produkt
 
 ### Fase 0 — kortlæg standard og kvalificér målmiljø
 
-Kortlæg standard-Dolibarr mod kravene; der er intet eksisterende kursusmodul at migrere. Den udførte kildebaserede kortlægning står i afsnit 14. Næste tekniske verifikation er at fastlåse målversion og testmiljø, aktivere relevante standardmoduler og teste de valgte adaptere. Brug syntetiske B2C/B2B-bookinger til at bevise kæden service → hold → tilmelding → ordrelinje → fakturalinje → betaling.
+Kortlæg standard-Dolibarr mod kravene; der er intet eksisterende kursusmodul at migrere. Den udførte kildebaserede kortlægning står i afsnit 14. Næste tekniske verifikation er at etablere et Dolibarr 24.0.2-testmiljø, aktivere relevante standardmoduler og teste de valgte adaptere. Brug syntetiske B2C/B2B-bookinger til at bevise kæden service → hold → tilmelding → ordrelinje → fakturalinje → betaling.
 
 **Fase 0-status:** Standard-/gapmatrix, registreringspunkter og genbrugsbeslutninger er udarbejdet. Teknisk kvalificering af målversion, database, Website og betalingsudbyder samt prototyper er ikke kørt. Der kræves ingen eksisterende modulkode eller historisk bookingdatabase. Et bindende implementationsestimat afventer teknisk kvalificering.
 
@@ -487,7 +487,7 @@ Offentlige formularer kræver ratebegrænsning, inputvalidering, beskyttelse mod
 
 ### 11.9 Samlet MVP og accept
 
-Første online driftsleverance (Fase 1B): publiceret kursuskatalog, holdvalg, navngivne deltagere, B2C-kortbetaling, godkendt B2B-fakturatilmelding, bekræftelser og ens visning i administrationen. Ét holdvalg pr. checkout; datamodellen kan understøtte flere linjer senere. Fuldt hold vises som udsolgt; offentlig venteliste og automatisk oprykning er Fase 2. Valg af betalingsudbyder og installationsversion er stadig åbent.
+Første online driftsleverance (Fase 1B): publiceret kursuskatalog, holdvalg, navngivne deltagere, B2C-kortbetaling, godkendt B2B-fakturatilmelding, bekræftelser og ens visning i administrationen. Ét holdvalg pr. checkout; datamodellen kan understøtte flere linjer senere. Fuldt hold vises som udsolgt; offentlig venteliste og automatisk oprykning er Fase 2. Dolibarr 24.0.2 er valgt som målversion; betalingsudbyder og driftsmiljø er stadig åbne.
 
 Online tilmelding flyttes ind i første driftsleverance i afsnit 10; den er ikke længere et senere integrationsønske. Minimumskontroller:
 
@@ -569,7 +569,7 @@ Der findes intet eksisterende kursusmodul. Screenshots er krav. Standardkortlæg
 
 | Rækkefølge | Handling | Evidens / port |
 |---|---|---|
-| 1 | Fastlås målversion, PHP, database og testmiljø | Referenceversion er 24.0.1 i undersøgelsen; det er ikke en konstatering af brugerens installation |
+| 1 | Fastlås målversion, PHP, database og testmiljø | Dolibarr 24.0.2 er valgt af brugeren; PHP, database og testmiljø mangler. 24.0.1 er alene den tidligere undersøgelsesreference |
 | 2 | Bekræft standardobjekter og nye felters registreringsformularer | Schema-/objektkontrakter og installationsmigrationer |
 | 3 | Byg prototype A på den valgte database | To samtidige forbindelser, samme låseprotokol fra admin og online |
 | 4 | Vælg én udbyder og kør prototype B i testtilstand | Verificeret afregning, dubletter, sen betaling og manuel betaling |
@@ -644,7 +644,7 @@ Standardkortlægningen afsluttes med besluttet standardgenbrug og registreringsm
 
 **Kurset er en standardservice.** Modulet tilføjer en faglig profil og versioner til servicen; det skal ikke have en separat kursusstamme med egen titel, reference og listepris. Det konkrete hold er et nyt modulobjekt, som leverer denne service på bestemte tidspunkter til bestemte deltagere.
 
-Undersøgelsen er gennemført mod officielle modulbeskrivelser, tabeldokumentation og Doxygen-kildevisning for Dolibarr 24.0.1. Denne version er valgt som undersøgelsesreference, fordi den har en officiel release og en tilgængelig versionsangivet kildevisning. Brugerens målversion er ikke valgt. Ældre wiki-kolonner er ikke behandlet som aktuelle uden kontrol: eksempelvis beskriver kontaktwiki ældre navn/adressekolonner, mens 24.0.1-kilden viser `lastname`, `zip` og `town`.
+Undersøgelsen er gennemført mod officielle modulbeskrivelser, tabeldokumentation og Doxygen-kildevisning for Dolibarr 24.0.1. Denne version er valgt som undersøgelsesreference, fordi den har en officiel release og en tilgængelig versionsangivet kildevisning. Brugeren har efterfølgende valgt Dolibarr 24.0.2 som målversion. Den udførte kildeanalyse på 24.0.1 er bevaret som reference; forskelle og adaptersignaturer skal verificeres mod 24.0.2 før implementation. Ældre wiki-kolonner er ikke behandlet som aktuelle uden kontrol: eksempelvis beskriver kontaktwiki ældre navn/adressekolonner, mens 24.0.1-kilden viser `lastname`, `zip` og `town`.
 
 Kortlægningen, genbrugsbeslutningerne og registreringsdesignet er færdige. Installation, aktivering, databasekonkurrence, faktiske betalingshændelser og Website-runtime er ikke testet. Disse er tekniske verifikationer med den resterende rækkefølge i afsnit 13.2. Arkitekturen kræver ingen eksisterende kursusmodulkode.
 
@@ -667,7 +667,7 @@ De nye udvidelser er anbefalinger udledt af kravene; de er ikke standardfunktion
 
 ### 14.3 Feltmatrix — stamdata og kursus
 
-S = standard; X = ny extension/extrafield; M = nyt modulobjekt; B = beregnet. Objektfelter og SQL-kolonner er forskellige kontrakter; de konkrete adaptersignaturer fastlåses ved valg af målversion. Alle nye felter nedenfor er foreslåede navne.
+S = standard; X = ny extension/extrafield; M = nyt modulobjekt; B = beregnet. Objektfelter og SQL-kolonner er forskellige kontrakter; de konkrete adaptersignaturer skal verificeres mod den valgte målversion 24.0.2. Alle nye felter nedenfor er foreslåede navne.
 
 | Oplysning | Type / master og felt | Registreringspunkt | Ansvarlig / obligatorisk tidspunkt |
 |---|---|---|---|
@@ -864,14 +864,15 @@ Standardobjekter kan i en installation være delte gennem den konkrete multienti
 | B-09 | Direkte rapportqueries før preaggregation / designbeslutning | Mindst kompleks drift; optimering vælges fra målinger | Sammendrag/cache indføres når mål og målinger kræver det |
 | B-10 | Ingen offentlig certifikatverifikation i Fase 1 / scopebeslutning | Certifikatmotor og offentlig dataeksponering er uden for MVP | Genbesøg før certifikatleverance i Fase 2 |
 | B-11 | Dansk som arbejdsdokumentets sprog / konstateret | Samarbejdet og kravene formuleres på dansk | Produktets UI-/dokumentsprog fastlåses før labels og skabeloner; dansk produktsprog er ikke brugerbesluttet |
+| B-12 | Dolibarr 24.0.2 / valgt af bruger | Fast målversion for modul, standardadaptere og installation | Kompatibilitet skal verificeres; PHP, database og hosting vælges særskilt |
 
-Beslutningerne er dokumenteret 4. oktober 2026. Kun B-01/B-02 er eksplicit valgt af brugeren; øvrige er anbefalede arkitektur-/scopebeslutninger i dette dokument. Udbyder, PHP og database er ikke valgt gennem denne log.
+Beslutningerne er dokumenteret 4. oktober 2026. B-01, B-02 og B-12 er eksplicit valgt af brugeren; øvrige er anbefalede arkitektur-/scopebeslutninger i dette dokument. Udbyder, PHP og database er ikke valgt gennem denne log.
 
 ### 17.2 Åbne beslutninger med seneste nødvendige tidspunkt
 
 | Valg | Nuværende status | Nødvendigt senest |
 |---|---|---|
-| Dolibarr, PHP og database | 24.0.1 er undersøgelsesreference; øvrigt ukendt | Før installationskode og databaseprototype |
+| Dolibarr, PHP og database | 24.0.2 er valgt målversion; 24.0.1 er tidligere undersøgelsesreference. PHP og database er ukendte | Før installationskode og databaseprototype |
 | Betalingsudbyder og fakturavalideringsflow | Ukendt | Før prototype B og betalingsimplementation |
 | Lande, sælger, valuta og momsbehandling | Ukendt; dansk UI betyder ikke dansk juridisk setup | Før produktionssalg og retentiongodkendelse |
 | UI-/dokumentsprog | Dansk arbejdsdokument; produktkrav ikke fastlagt | Før labels, mails og dokumentskabeloner færdiggøres |
@@ -1201,7 +1202,7 @@ Blandet finansiering er senere scope: eksempelvis 300,00 HT fra arbejdsgiver og 
 
 ### 26.1 Fra beslutningsgrundlag til kode
 
-Første kodeleverance kræver fastlåst Dolibarr/PHP/database og et testmiljø. Schema-definitionerne specificerer derefter typer, null/default, FK og entydighed i én versionsstyret kilde; dokumentation og installations-SQL kan genereres/valideres derfra. Standardfelter erklæres som referencer, ikke nye kolonner med kopieret indhold. Datatyper for modulbeløb, tidsstempler og referencestrenge fastlægges med den valgte driver; de må ikke opfindes som verificerede standardfelter i dette dokument.
+Første kodeleverance målrettes Dolibarr 24.0.2 og kræver derudover fastlagt PHP, database og et testmiljø. Schema-definitionerne specificerer derefter typer, null/default, FK og entydighed i én versionsstyret kilde; dokumentation og installations-SQL kan genereres/valideres derfra. Standardfelter erklæres som referencer, ikke nye kolonner med kopieret indhold. Datatyper for modulbeløb, tidsstempler og referencestrenge fastlægges med den valgte driver; de må ikke opfindes som verificerede standardfelter i dette dokument.
 
 Dernæst: servicefane → programversion → hold/blokke → kapacitetsprototype A → økonomirelationer → betalingsprototype B → Website-prototype C → samlet UAT/releaseport. Kalenderdatoer fastlægges først, når startdato, bemanding og afhængigheder er kendt. Reviewets forslag om faste uger eller ekstra procentbuffer er ikke lagt oven i estimatintervallet uden en ny vurdering.
 
@@ -1215,7 +1216,8 @@ Dernæst: servicefane → programversion → hold/blokke → kapacitetsprototype
 | 1.1–1.3 | 3.–4. oktober 2026 | Website, MVP-faser, statusregler og prototypeplan | Historiske arbejdsversioner |
 | 2.0 | 4. oktober 2026 | Nyudvikling, kursus=service og standard-/gapmatrix | Kildebaseret analyse |
 | 2.1 | 4. oktober 2026 | Risici, entity, beslutninger, dictionary, performance, retention og estimat | Arbejdsgrundlag |
-| 2.2 | 4. oktober 2026 | Test, drift, kommunikation, opstart, eksempel og navigation | Aktuel arbejdsudgave; ikke godkendt runtime-/releasegrundlag |
+| 2.2 | 4. oktober 2026 | Test, drift, kommunikation, opstart, eksempel og navigation | Historisk arbejdsudgave |
+| 2.3 | 4. oktober 2026 | Dolibarr 24.0.2 valgt som målversion; referenceanalyse og udestående kompatibilitetskontrol adskilt | Aktuel arbejdsudgave; runtime-/releasekvalificering udestår |
 
 Bidrag: brugerens krav og præciseringer, de vedhæftede reviews og den udførte kildeanalyse. Der er ikke dokumenteret formel godkendelse af hvert bilag, konkrete personer eller release. Arbejdsdokumentets versionsnummer er ikke modul-kodens releaseversion.
 
