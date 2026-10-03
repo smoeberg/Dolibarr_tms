@@ -2,7 +2,9 @@
 
 Et nyt kursusadministrationsmodul til Dolibarr med online tilmelding gennem Dolibarr Website.
 
-**Status:** Arkitektur og standard-/gapkortlægning, version 2.2. Der er endnu ingen modulimplementation i repoet. Runtime-prototyper og installationstest er ikke udført.
+**Status:** Arkitektur og standard-/gapkortlægning, version 2.3. Der er endnu ingen modulimplementation i repoet. Runtime-prototyper og installationstest er ikke udført.
+
+**Målversion:** Dolibarr 24.0.2, valgt af brugeren. PHP, database, hosting og betalingsudbyder er endnu ikke fastlagt. Kompatibilitetstest mod målversionen udestår.
 
 ## Dokumentation
 
@@ -45,7 +47,7 @@ Dokumentet henviser til screenshots og reviewtekster fra designarbejdet. Disse b
 
 ## Næste udviklingstrin
 
-1. Fastlæg målversion af Dolibarr samt PHP-, database- og driftsmiljø.
+1. Etablér et Dolibarr 24.0.2-testmiljø og fastlæg PHP-, database- og driftsmiljø.
 2. Vælg og afprøv én betalingsudbyder og én betalingsvariant.
 3. Verificér standardobjekter, adgangskontrol, Website-interface og jobdrift på målversionen.
 4. Afprøv kapacitet og pladsreservation under samtidighed samt betaling efter reservationsudløb.
