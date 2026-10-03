@@ -1,6 +1,6 @@
 # Dolibarr TMS — arkitektur og datakortlægning
 
-Beslutningsgrundlag • 4. oktober 2026 • Version 2.4 — Dolibarr 24.0.2 og PHP 8.4 fastlagt
+Beslutningsgrundlag • 4. oktober 2026 • Version 2.5 — Dolibarr 24.0.2, PHP 8.4.26 og MySQL
 
 ## Indhold
 
@@ -40,7 +40,7 @@ Byg ét eksternt Dolibarr-modul, `training`, som en modulær PHP-applikation i `
 
 Én autoritativ kilde pr. oplysning. Pris og program kopieres kun som bevidste, tidsbundne snapshots, når en aftale indgås eller et hold publiceres. Dashboardtal beregnes fra disse kilder.
 
-Modulet skal udvikles fra bunden. De ti screenshots er krav- og designreferencer, ikke dokumentation for et eksisterende modul. Fase 0-standardkortlægningen er udført gennem officielle kilder; resultatet står i afsnit 14. Brugeren har valgt Dolibarr 24.0.2 som målversion. PHP 8.4 er valgt af brugeren. Database, driftsmiljø og betalingsudbyder er endnu ikke oplyst. Den konkrete PHP 8.4-patchversion og nødvendige extensions registreres i testmiljøets manifest. Kompatibilitet med 24.0.2 er ikke teknisk verificeret. Der er ikke udført database- eller betalingstests. Alle navne med `llx_training_*` er **foreslåede tabeller**, ikke konstaterede eksisterende tabeller. `llx_` er dokumentationspræfiks; implementationen bruger Dolibarrs konfigurerede databasepræfiks.
+Modulet skal udvikles fra bunden. De ti screenshots er krav- og designreferencer, ikke dokumentation for et eksisterende modul. Fase 0-standardkortlægningen er udført gennem officielle kilder; resultatet står i afsnit 14. Brugeren har valgt Dolibarr 24.0.2 som målversion. Brugeren har oplyst PHP 8.4.26 og MySQL via installationscheck fra eira-systems.eu. MySQL-version, storage engine, isolation, SQL mode og testmiljø er endnu ikke verificeret. Betalingsudbyder er ikke valgt. PHP-extensions dokumenteres ud fra det indsendte check og verificeres i testmiljøets manifest. Kompatibilitet med 24.0.2 er ikke teknisk verificeret. Der er ikke udført database- eller betalingstests. Alle navne med `llx_training_*` er **foreslåede tabeller**, ikke konstaterede eksisterende tabeller. `llx_` er dokumentationspræfiks; implementationen bruger Dolibarrs konfigurerede databasepræfiks.
 
 ## 2. Hvad materialet faktisk dokumenterer
 
@@ -569,7 +569,7 @@ Der findes intet eksisterende kursusmodul. Screenshots er krav. Standardkortlæg
 
 | Rækkefølge | Handling | Evidens / port |
 |---|---|---|
-| 1 | Fastlås målversion, PHP, database og testmiljø | Dolibarr 24.0.2 er valgt af brugeren; PHP 8.4 er valgt; database og testmiljø mangler. 24.0.1 er alene den tidligere undersøgelsesreference |
+| 1 | Fastlås målversion, PHP, database og testmiljø | Dolibarr 24.0.2 er valgt af brugeren; PHP 8.4.26 og MySQL er oplyst; MySQL-version og testmiljø mangler. 24.0.1 er alene den tidligere undersøgelsesreference |
 | 2 | Bekræft standardobjekter og nye felters registreringsformularer | Schema-/objektkontrakter og installationsmigrationer |
 | 3 | Byg prototype A på den valgte database | To samtidige forbindelser, samme låseprotokol fra admin og online |
 | 4 | Vælg én udbyder og kør prototype B i testtilstand | Verificeret afregning, dubletter, sen betaling og manuel betaling |
@@ -864,16 +864,19 @@ Standardobjekter kan i en installation være delte gennem den konkrete multienti
 | B-09 | Direkte rapportqueries før preaggregation / designbeslutning | Mindst kompleks drift; optimering vælges fra målinger | Sammendrag/cache indføres når mål og målinger kræver det |
 | B-10 | Ingen offentlig certifikatverifikation i Fase 1 / scopebeslutning | Certifikatmotor og offentlig dataeksponering er uden for MVP | Genbesøg før certifikatleverance i Fase 2 |
 | B-11 | Dansk som arbejdsdokumentets sprog / konstateret | Samarbejdet og kravene formuleres på dansk | Produktets UI-/dokumentsprog fastlåses før labels og skabeloner; dansk produktsprog er ikke brugerbesluttet |
-| B-12 | Dolibarr 24.0.2 / valgt af bruger | Fast målversion for modul, standardadaptere og installation | Kompatibilitet skal verificeres; PHP 8.4 er valgt i B-13, database og hosting vælges særskilt |
-| B-13 | PHP 8.4 / valgt af bruger | Fast runtime-mål for udvikling og kompatibilitetstest | Patchversion og extensions dokumenteres i testmiljøet; kompatibilitet er endnu ikke testet |
+| B-12 | Dolibarr 24.0.2 / valgt af bruger | Fast målversion for modul, standardadaptere og installation | Kompatibilitet skal verificeres; PHP er dokumenteret i B-13 og MySQL i B-14; testmiljø kvalificeres særskilt |
+| B-13 | PHP 8.4.26 / oplyst af bruger via installationscheck | Konkret runtime-mål for udvikling og kompatibilitetstest | Extensions er rapporteret i checket; modulkompatibilitet er endnu ikke testet |
+| B-14 | MySQL / oplyst af bruger | Databasefamilie for udvikling og migrationsprøver | Serverversion, storage engine, isolation og SQL mode skal verificeres før samtidighedsprøven |
 
-Beslutningerne er dokumenteret 4. oktober 2026. B-01, B-02, B-12 og B-13 er eksplicit valgt af brugeren; øvrige er anbefalede arkitektur-/scopebeslutninger i dette dokument. PHP 8.4 er valgt af brugeren. Udbyder og database er ikke valgt gennem denne log.
+Beslutningerne er dokumenteret 4. oktober 2026. B-01, B-02 og B-12 er valgt af brugeren; B-13 og B-14 beskriver brugerens oplyste miljø; øvrige er anbefalede arkitektur-/scopebeslutninger i dette dokument. PHP 8.4.26 og MySQL er oplyst af brugeren. Betalingsudbyder og MySQL-version er ikke afklaret.
+
+**Indsendt installationscheck:** PHP 8.4.26; POST/GET, sessions og DOM er understøttet. Checket rapporterer MBString, JSON, GD, Curl, Calendar, Xml, UTF8, Intl og ZIP samt memory limit 2048M og skrivbar `htdocs/conf/conf.php`. Dette er brugerleveret miljøevidens, ikke en udført modulinstallation eller adgang til serveren. Checket angiver MySQL, men ikke serverversion eller transaktionsindstillinger. En separat testinstallation med syntetiske data og relevante DB-drivere skal kvalificeres før tests.
 
 ### 17.2 Åbne beslutninger med seneste nødvendige tidspunkt
 
 | Valg | Nuværende status | Nødvendigt senest |
 |---|---|---|
-| Dolibarr, PHP og database | 24.0.2 er valgt målversion; 24.0.1 er tidligere undersøgelsesreference. PHP 8.4 er valgt; database er ukendt | Før installationskode og databaseprototype |
+| Dolibarr, PHP og database | 24.0.2 er valgt målversion; 24.0.1 er tidligere undersøgelsesreference. PHP 8.4.26 og MySQL er oplyst; MySQL-version og transaktionsindstillinger er ukendte | Før installationskode og databaseprototype |
 | Betalingsudbyder og fakturavalideringsflow | Ukendt | Før prototype B og betalingsimplementation |
 | Lande, sælger, valuta og momsbehandling | Ukendt; dansk UI betyder ikke dansk juridisk setup | Før produktionssalg og retentiongodkendelse |
 | UI-/dokumentsprog | Dansk arbejdsdokument; produktkrav ikke fastlagt | Før labels, mails og dokumentskabeloner færdiggøres |
@@ -1203,7 +1206,7 @@ Blandet finansiering er senere scope: eksempelvis 300,00 HT fra arbejdsgiver og 
 
 ### 26.1 Fra beslutningsgrundlag til kode
 
-Første kodeleverance målrettes Dolibarr 24.0.2 og målrettes PHP 8.4 og kræver derudover fastlagt database og et testmiljø. PHP 8.4-kompatibilitet skal verificeres med installation, relevante standardadaptere og fejl-/deprecation-logning; der er endnu ikke kørt sådanne tests. Schema-definitionerne specificerer derefter typer, null/default, FK og entydighed i én versionsstyret kilde; dokumentation og installations-SQL kan genereres/valideres derfra. Standardfelter erklæres som referencer, ikke nye kolonner med kopieret indhold. Datatyper for modulbeløb, tidsstempler og referencestrenge fastlægges med den valgte driver; de må ikke opfindes som verificerede standardfelter i dette dokument.
+Første kodeleverance målrettes Dolibarr 24.0.2, PHP 8.4.26 og MySQL. MySQL-version og testmiljø skal kvalificeres til migrations- og kapacitetstests. PHP 8.4-kompatibilitet skal verificeres med installation, relevante standardadaptere og fejl-/deprecation-logning; der er endnu ikke kørt sådanne tests. Schema-definitionerne specificerer derefter typer, null/default, FK og entydighed i én versionsstyret kilde; dokumentation og installations-SQL kan genereres/valideres derfra. Standardfelter erklæres som referencer, ikke nye kolonner med kopieret indhold. Datatyper for modulbeløb, tidsstempler og referencestrenge fastlægges med den valgte driver; de må ikke opfindes som verificerede standardfelter i dette dokument.
 
 Dernæst: servicefane → programversion → hold/blokke → kapacitetsprototype A → økonomirelationer → betalingsprototype B → Website-prototype C → samlet UAT/releaseport. Kalenderdatoer fastlægges først, når startdato, bemanding og afhængigheder er kendt. Reviewets forslag om faste uger eller ekstra procentbuffer er ikke lagt oven i estimatintervallet uden en ny vurdering.
 
@@ -1219,7 +1222,8 @@ Dernæst: servicefane → programversion → hold/blokke → kapacitetsprototype
 | 2.1 | 4. oktober 2026 | Risici, entity, beslutninger, dictionary, performance, retention og estimat | Arbejdsgrundlag |
 | 2.2 | 4. oktober 2026 | Test, drift, kommunikation, opstart, eksempel og navigation | Historisk arbejdsudgave |
 | 2.3 | 4. oktober 2026 | Dolibarr 24.0.2 valgt som målversion; referenceanalyse og udestående kompatibilitetskontrol adskilt | Historisk arbejdsudgave |
-| 2.4 | 4. oktober 2026 | PHP 8.4 valgt som runtime-mål; database og testmiljø fortsat åbne | Aktuel arbejdsudgave; runtime-/releasekvalificering udestår |
+| 2.4 | 4. oktober 2026 | PHP 8.4 valgt som runtime-mål; database og testmiljø fortsat åbne | Historisk arbejdsudgave |
+| 2.5 | 4. oktober 2026 | PHP 8.4.26 og MySQL registreret fra brugerens installationscheck | Aktuel arbejdsudgave; MySQL-version og runtime-/releasekvalificering udestår |
 
 Bidrag: brugerens krav og præciseringer, de vedhæftede reviews og den udførte kildeanalyse. Der er ikke dokumenteret formel godkendelse af hvert bilag, konkrete personer eller release. Arbejdsdokumentets versionsnummer er ikke modul-kodens releaseversion.
 
