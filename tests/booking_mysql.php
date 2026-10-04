@@ -39,7 +39,7 @@ $enrollments->cancel($sessionId, $enrollment1, 'Administrative cancellation');
 $auditCount = $db->count('training_audit');
 $enrollments->cancel($sessionId, $enrollment1, 'Repeated request');
 verify($db->count('training_audit') === $auditCount, 'repeated cancellation adds no audit event');
-$enrollments->confirm($sessionId, 23);
+$enrollment3 = $enrollments->confirm($sessionId, 23);
 verify($scheduling->detail($sessionId)['occupied'] === 2, 'cancelled participant releases exactly one seat');
 $scheduling->changeStatus($sessionId, 'closed');
 bookingReject(fn() => $enrollments->confirm($sessionId, 21), 'TrainingSessionNotOpen');
@@ -48,6 +48,27 @@ $db->failAudit = true;
 bookingReject(fn() => $scheduling->changeCapacity($sessionId, 3), 'TrainingDatabaseError');
 $db->failAudit = false;
 verify((int) $scheduling->detail($sessionId)['session']->capacity === 2, 'capacity change rolls back if audit fails');
+$enrollments->cancel($sessionId, $enrollment3, 'Replaced by original participant');
+verify($enrollments->confirm($sessionId, 21) === $enrollment1 && $scheduling->detail($sessionId)['occupied'] === 2, 're-enrollment reuses its original ID after a new capacity check');
+$history = $db->query("SELECT metadata_json FROM tst_training_audit WHERE object_type='enrollment' AND fk_object=".$enrollment1." AND action='cancelled' ORDER BY rowid LIMIT 1")->fetch_object();
+verify(json_decode($history->metadata_json, true)['reason'] === 'Administrative cancellation', 're-enrollment retains previous cancellation reason in audit');
+$rollbackId = $scheduling->create($first, 'AUDIT-ROLLBACK', 'Audit rollback test', 1, 'Europe/Copenhagen');
+$scheduling->replaceSlots($rollbackId, $slots); $scheduling->changeStatus($rollbackId, 'open');
+$db->failAudit = true;
+bookingReject(fn() => $enrollments->confirm($rollbackId, 26), 'TrainingDatabaseError');
+$db->failAudit = false;
+verify($scheduling->detail($rollbackId)['occupied'] === 0, 'booking audit failure leaves no occupied seat');
+$rollbackEnrollment = $enrollments->confirm($rollbackId, 26);
+$db->failAudit = true;
+bookingReject(fn() => $enrollments->cancel($rollbackId, $rollbackEnrollment, 'Test failed audit'), 'TrainingDatabaseError');
+$db->failAudit = false;
+verify($scheduling->detail($rollbackId)['occupied'] === 1, 'cancellation audit failure preserves booked seat');
+class ReadOnlyEnrollmentUser extends MysqlTestUser {
+    public function hasRight($module, ...$keys) { return !($module === 'training' && $keys === array('enrollment', 'write')); }
+}
+$readOnlyEnrollments = new TrainingEnrollmentService(bookingStore($db, 2, new ReadOnlyEnrollmentUser()));
+bookingReject(fn() => $readOnlyEnrollments->cancel($rollbackId, $rollbackEnrollment, 'Unauthorized'), 'TrainingAccessDenied');
+verify($scheduling->detail($rollbackId)['occupied'] === 1, 'session write permission does not grant enrollment write');
 $otherSchedule = new TrainingSchedulingService(bookingStore($db, 1));
 bookingReject(fn() => $otherSchedule->detail($sessionId), 'TrainingSessionNotFound');
 bookingReject(fn() => $otherSchedule->create($first, 'WRONG-ENTITY', 'Wrong', 2, 'Europe/Copenhagen'), 'TrainingPublishedVersionRequired');
@@ -101,8 +122,8 @@ for ($round = 1; $round <= 5; $round++) {
     verify(count(array_filter($results, fn($r) => $r['status'] === 'confirmed')) === 1 && $scheduling->detail($raceId)['occupied'] === 1, 'concurrent last seat round '.$round.': exactly one participant');
     $raceId = $scheduling->create($first, 'RACE-CAPACITY-'.$round, 'Capacity race test', 2, 'Europe/Copenhagen');
     $scheduling->replaceSlots($raceId, $slots); $scheduling->changeStatus($raceId, 'open'); $enrollments->confirm($raceId, 24);
-    raceBookings($raceId, array(array('confirm',25), array('capacity',1)));
+    $results = raceBookings($raceId, array(array('confirm',25), array('capacity',1)));
     $detail = $scheduling->detail($raceId);
-    verify($detail['occupied'] <= (int) $detail['session']->capacity, 'capacity reduction versus booking round '.$round.' preserves invariant');
+    verify($detail['occupied'] === (int) $detail['session']->capacity && count(array_filter($results, fn($r) => $r['status'] !== 'rejected')) === 1, 'capacity reduction versus booking round '.$round.' preserves invariant with one successful operation');
 }
 echo 'All booking and concurrency MySQL tests passed.'.PHP_EOL;
