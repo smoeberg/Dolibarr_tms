@@ -1,4 +1,4 @@
-# Training 0.6.0 for Dolibarr
+# Training 0.7.0 for Dolibarr
 
 External module for Dolibarr 24.0.2, PHP 8.4 and MySQL/InnoDB.
 Courses extend standard Dolibarr services; learners link to standard contacts.
@@ -7,7 +7,7 @@ capacity control with named temporary reservations, attendance, invoice-line all
 
 ## Installation
 
-Download `module_training-0.6.0.zip` from the project `dist/` directory.
+Download `module_training-0.7.0.zip` from the project `dist/` directory.
 In Dolibarr, open Setup → Modules/Applications → Deploy/install external module,
 upload this ZIP and activate Training. Dolibarr installs it in `htdocs/custom/training`.
 Enable Services, Third Parties and Invoices. Grant course/session/contact read and the
@@ -38,3 +38,8 @@ card, approve a whole group or release it with a reason. Expired holds stop
 consuming capacity without a job. Administrative approval does not indicate
 payment; Website checkout and payment verification are not included.
 See docs/pladsreservationer.md in the repository.
+
+The read-only session/capacity overview uses one validated filter and one
+statement snapshot for totals and paginated rows. It requires coordinator
+session/read and enrollment/read; own-attendance rights do not grant access.
+See docs/holdoverblik.md in the repository.

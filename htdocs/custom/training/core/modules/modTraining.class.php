@@ -14,7 +14,7 @@ class modTraining extends DolibarrModules
         $this->module_position = '90';
         $this->name = 'Training';
         $this->description = 'ModuleTrainingDesc';
-        $this->version = '0.6.0';
+        $this->version = '0.7.0';
         $this->const_name = 'MAIN_MODULE_TRAINING';
         $this->picto = 'service';
         $this->editor_name = 'Dolibarr TMS';
@@ -43,6 +43,7 @@ class modTraining extends DolibarrModules
             }
         }
         $this->menu = array(array('fk_menu'=>'fk_mainmenu=products', 'type'=>'left', 'titre'=>'TrainingMySessions', 'mainmenu'=>'products', 'leftmenu'=>'trainingmine', 'url'=>'/training/myattendance.php', 'langs'=>'training@training', 'position'=>100, 'enabled'=>'isModEnabled("training")', 'perms'=>'$user->hasRight("training", "ownattendance", "read")', 'target'=>'', 'user'=>2));
+        $this->menu[] = array('fk_menu'=>'fk_mainmenu=products', 'type'=>'left', 'titre'=>'TrainingOverview', 'mainmenu'=>'products', 'leftmenu'=>'trainingoverview', 'url'=>'/training/overview.php', 'langs'=>'training@training', 'position'=>99, 'enabled'=>'isModEnabled("training")', 'perms'=>'$user->hasRight("training","session","read") && $user->hasRight("training","enrollment","read")', 'target'=>'', 'user'=>2);
     }
 
     public function init($options = '')

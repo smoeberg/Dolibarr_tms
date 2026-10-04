@@ -58,6 +58,7 @@ with (repo / '.ci/http.log').open('w') as log:
             f'/custom/training/trainers.php?id={fixture["session"]}': 'NATIVE-CI',
             f'/custom/training/billing.php?id={fixture["session"]}': 'NATIVE-CI',
             '/custom/training/myattendance.php': 'NATIVE-CI',
+            '/custom/training/overview.php?search=NATIVE-CI': 'NATIVE-CI',
             f'/custom/training/reservations.php?id={fixture["session"]}': 'Participant',
             f'/product/card.php?id={fixture["product"]}': f'/custom/training/course.php?id={fixture["product"]}',
         }
