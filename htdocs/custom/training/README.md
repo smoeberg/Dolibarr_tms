@@ -1,4 +1,4 @@
-# Training 0.4.1 for Dolibarr
+# Training 0.5.0 for Dolibarr
 
 External module for Dolibarr 24.0.2, PHP 8.4 and MySQL/InnoDB.
 Courses extend standard Dolibarr services; learners link to standard contacts.
@@ -7,7 +7,7 @@ capacity control, attendance, invoice-line allocations and transactional audit. 
 
 ## Installation
 
-Download `module_training-0.4.1.zip` from the project `dist/` directory.
+Download `module_training-0.5.0.zip` from the project `dist/` directory.
 In Dolibarr, open Setup → Modules/Applications → Deploy/install external module,
 upload this ZIP and activate Training. Dolibarr installs it in `htdocs/custom/training`.
 Enable Services, Third Parties and Invoices. Grant course/session/contact read and the
@@ -20,10 +20,15 @@ For an upgrade, back up the database and module files, upload the new ZIP,
 then deactivate/reactivate Training so missing tables and new rights are registered.
 Deactivation retains course data and audit. No core files are modified.
 Use a test instance before production. The module ID 504850 and permission IDs
-504851–504863 are provisional private IDs; verify they do not conflict locally.
+504851–504868 are provisional private IDs; verify they do not conflict locally.
 Full installation/UI verification on the target server remains to be performed.
 
 Source and documentation: https://github.com/smoeberg/Dolibarr_tms
 
 Attendance uses a local date/time picker in the session timezone, explicit
 clock-change occurrence selection, saved-status feedback and readable audit history.
+
+Trainer profiles link to standard internal Users. Assignments grant attendance
+access only together with ownattendance/read, write and correct permissions.
+Trainers should not receive the coordinator-wide attendance permissions.
+See docs/underviseradgang.md in the repository for role setup and upgrade steps.

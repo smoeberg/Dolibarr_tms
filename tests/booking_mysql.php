@@ -12,6 +12,11 @@ for ($i = 0; $i < 2; $i++) {
     do { if ($result = $db->connection->store_result()) { $result->free(); } }
     while ($db->connection->more_results() && $db->connection->next_result());
 }
+$trainerSchema=str_replace('llx_', 'tst_',file_get_contents(__DIR__.'/../htdocs/custom/training/sql/llx_training_ztrainers.sql'));
+for ($i=0;$i<2;$i++) {
+    $db->connection->multi_query($trainerSchema);
+    do { if ($result=$db->connection->store_result()) { $result->free(); } } while ($db->connection->more_results() && $db->connection->next_result());
+}
 $store = bookingStore($db);
 $scheduling = new TrainingSchedulingService($store);
 $enrollments = new TrainingEnrollmentService($store);

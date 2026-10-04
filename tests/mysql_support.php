@@ -36,13 +36,13 @@ class MysqlTestDb {
 class MysqlTestUser {
     public $id = 7;
     public $socid = 0;
-    public function hasRight($module, ...$keys) { return true; }
+    public function hasRight($module, ...$keys) { return !($module === 'training' && $keys[0] === 'ownattendance'); }
 }
 
 require_once __DIR__.'/../htdocs/custom/training/class/trainingschedulingservice.class.php';
 require_once __DIR__.'/../htdocs/custom/training/class/trainingenrollmentservice.class.php';
 function bookingStore(MysqlTestDb $db, int $entity = 2, $user = null): TrainingStore {
-    $access = new TrainingAccess($user ?? new MysqlTestUser(), $entity, '1,2', '1,2', '1,2');
+    $access = new TrainingAccess($user ?? new MysqlTestUser(), $entity, '1,2', '1,2', '1,2', '0,1,2');
     $products = function (int $id) use ($db) {
         $r = $db->query('SELECT * FROM tst_product WHERE rowid='.$id)->fetch_object();
         if (!$r) { throw new RuntimeException('TrainingServiceNotAccessible'); }
@@ -54,4 +54,19 @@ function bookingStore(MysqlTestDb $db, int $entity = 2, $user = null): TrainingS
         $r->id = $id; $r->socid = $r->fk_soc; $r->status = $r->statut; return $r;
     };
     return new TrainingStore($db, $access, $products, $contacts);
+}
+
+class OwnAttendanceUser extends MysqlTestUser {
+    public $id = 8;
+    public bool $canWrite = true;
+    public bool $canCorrect = true;
+    public function hasRight($module, ...$keys) {
+        if ($module==='service' && $keys===array('lire')) { return true; }
+        if ($module==='societe' && in_array($keys,array(array('contact','lire'),array('client','voir')),true)) { return true; }
+        if ($module==='training' && $keys===array('course','read')) { return true; }
+        if ($module==='training' && $keys[0]==='ownattendance') {
+            return $keys[1]==='read' || ($keys[1]==='write' && $this->canWrite) || ($keys[1]==='correct' && $this->canCorrect);
+        }
+        return false;
+    }
 }

@@ -7,8 +7,9 @@ final class TrainingAccess
     private array $productEntities;
     private array $contactEntities;
     private array $thirdpartyEntities;
+    private array $userEntities;
 
-    public function __construct($user, int $entity, string $productEntities, ?string $contactEntities = null, ?string $thirdpartyEntities = null)
+    public function __construct($user, int $entity, string $productEntities, ?string $contactEntities = null, ?string $thirdpartyEntities = null, ?string $userEntities = null)
     {
         if ($entity < 1 || !preg_match('/^\d+(,\d+)*$/D', $productEntities)) {
             throw new InvalidArgumentException('TrainingInvalidEntity');
@@ -18,6 +19,7 @@ final class TrainingAccess
         $this->productEntities = array_map('intval', explode(',', $productEntities));
         $this->contactEntities = $this->entities($contactEntities ?? (string) $entity);
         $this->thirdpartyEntities = $this->entities($thirdpartyEntities ?? (string) $entity);
+        $this->userEntities = $this->entities($userEntities ?? (string) $entity);
     }
 
     private function entities(string $ids): array
@@ -40,6 +42,32 @@ final class TrainingAccess
             || !$this->user->hasRight('training', $domain, $right)) {
             throw new RuntimeException('TrainingAccessDenied');
         }
+    }
+
+    public function attendanceScope(string $right): string
+    {
+        if (!in_array($right, array('read','write','correct'), true) || empty($this->user->id) || !empty($this->user->socid)
+            || !$this->user->hasRight('service', 'lire') || !$this->user->hasRight('training', 'course', 'read')) {
+            throw new RuntimeException('TrainingAccessDenied');
+        }
+        if ($this->user->hasRight('training', 'session', 'read') && $this->user->hasRight('training', 'attendance', 'read') && $this->user->hasRight('training', 'attendance', $right)) { return 'all'; }
+        if ($this->user->hasRight('training', 'ownattendance', 'read') && $this->user->hasRight('training', 'ownattendance', $right)) { return 'own'; }
+        throw new RuntimeException('TrainingAccessDenied');
+    }
+    public function requireAttendance(int $sessionId, string $right, $db, bool $lock = false): void
+    {
+        $this->requireContactRead();
+        if ($this->attendanceScope($right) === 'all') { return; }
+        $sql = 'SELECT a.rowid FROM '.$db->prefix().'training_trainer_assignment a JOIN '.$db->prefix().'training_trainer t ON t.rowid=a.fk_trainer AND t.entity=a.entity JOIN '.$db->prefix().'user u ON u.rowid=t.fk_user';
+        $sql .= ' WHERE a.entity='.$this->entity.' AND a.fk_session='.$sessionId." AND a.status='active' AND t.active=1 AND u.rowid=".$this->actor().' AND u.statut=1 AND (u.fk_soc IS NULL OR u.fk_soc=0) AND u.entity IN ('.$this->userEntityScope().')';
+        try { $r = $db->query($sql.($lock ? ' FOR UPDATE' : '')); }
+        catch (Throwable $e) { throw new RuntimeException('TrainingDatabaseError', 0, $e); }
+        if (!$r) { throw new RuntimeException('TrainingDatabaseError'); }
+        if (!$db->fetch_object($r)) { throw new RuntimeException('TrainingAccessDenied'); }
+    }
+    public function userEntityScope(): string { return implode(',', $this->userEntities); }
+    public function requireUserRead(): void {
+        if (!$this->user->hasRight('user', 'user', 'lire')) { throw new RuntimeException('TrainingTrainerUserNotAccessible'); }
     }
 
     public function requireContact($contact, $db): void

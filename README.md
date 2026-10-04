@@ -2,15 +2,15 @@
 
 Et nyt kursusadministrationsmodul til Dolibarr med online tilmelding gennem Dolibarr Website.
 
-**Status:** Intern kerne 0.4.1: kursusprofiler, programversioner, hold, undervisningsblokke, administrativ tilmelding, kapacitetsstyring basis-fremmøde og allokering af standardfakturalinjer. Online checkout er planlagt. Arkitektur og standard-/gapkortlægning er dokumenteret i version 2.5.
+**Status:** Intern kerne 0.5.0: kursusprofiler, programversioner, hold, undervisningsblokke, administrativ tilmelding, kapacitetsstyring basis-fremmøde allokering af standardfakturalinjer og hold-specifik underviseradgang. Online checkout er planlagt. Arkitektur og standard-/gapkortlægning er dokumenteret i version 2.5.
 
 **Målmiljø:** Dolibarr 24.0.2, PHP 8.4.26 og MySQL. CI bruger PHP 8.4 og MySQL 8.0; den konkrete MySQL-serverversion og fuld installation/UI på målserveren mangler fortsat at blive verificeret.
 
 ## Download og installation
 
-Download **[module_training-0.4.1.zip](dist/module_training-0.4.1.zip)** (vælg “Download raw file” på GitHub). Upload pakken direkte i Dolibarr under **Opsætning → Moduler/Applikationer → Installer eksternt modul**, og aktivér Training. Pakken indeholder kun det installerbare modul; ingen kerneændringer eller ekstra afhængighedsinstallation er nødvendig.
+Download **[module_training-0.5.0.zip](dist/module_training-0.5.0.zip)** (vælg “Download raw file” på GitHub). Upload pakken direkte i Dolibarr under **Opsætning → Moduler/Applikationer → Installer eksternt modul**, og aktivér Training. Pakken indeholder kun det installerbare modul; ingen kerneændringer eller ekstra afhængighedsinstallation er nødvendig.
 
-Se [fakturalinjefordeling og installationsvejledning 0.4.0](docs/fakturalinjefordeling.md) samt [den nye fremmøde-UI 0.4.1](docs/fremmoede-ui.md) og [fremmøderegler](docs/fremmoede.md). Modulkoden ligger i [`htdocs/custom/training`](htdocs/custom/training). Tidligere leverancer er beskrevet i [kursusgrundlaget](docs/udvikling.md) og [hold/tilmelding](docs/hold-og-tilmelding.md). Brug en testinstallation før produktion.
+Se [undervisertildeling og rolleopsætning 0.5.0](docs/underviseradgang.md), [fakturalinjefordeling og installationsvejledning 0.4.0](docs/fakturalinjefordeling.md) samt [den nye fremmøde-UI 0.4.1](docs/fremmoede-ui.md) og [fremmøderegler](docs/fremmoede.md). Modulkoden ligger i [`htdocs/custom/training`](htdocs/custom/training). Tidligere leverancer er beskrevet i [kursusgrundlaget](docs/udvikling.md) og [hold/tilmelding](docs/hold-og-tilmelding.md). Brug en testinstallation før produktion.
 
 ## Dokumentation
 

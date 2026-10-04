@@ -17,7 +17,7 @@ function attendanceReject(callable $fn, string $reason): void {
 }
 attendanceReject(fn() => $attendance->record($sessionId, $slotId, $enrollment1, 1, array('status'=>'absent')), 'TrainingAttendanceReasonRequired');
 class NoCorrectionUser extends MysqlTestUser {
-    public function hasRight($module, ...$keys) { return !($module === 'training' && $keys === array('attendance','correct')); }
+    public function hasRight($module, ...$keys) { return !($module === 'training' && in_array($keys, array(array('attendance','correct'),array('ownattendance','correct')), true)); }
 }
 $noCorrection = new TrainingAttendanceService(bookingStore($db, 2, new NoCorrectionUser()));
 attendanceReject(fn() => $noCorrection->record($sessionId, $slotId, $enrollment1, 1, array('status'=>'absent'), 'Attempt'), 'TrainingAccessDenied');
@@ -41,7 +41,7 @@ attendanceReject(fn() => $attendance->record($sessionId, $foreignSlot, $enrollme
 attendanceReject(fn() => $attendance->record($sessionId, $slotId, $rollbackEnrollment, 0, array('status'=>'present')), 'TrainingEnrollmentNotFound');
 attendanceReject(fn() => (new TrainingAttendanceService(bookingStore($db, 1)))->sheet($sessionId, $slotId), 'TrainingSessionNotFound');
 class NoAttendanceUser extends MysqlTestUser {
-    public function hasRight($module, ...$keys) { return !($module === 'training' && $keys[0] === 'attendance'); }
+    public function hasRight($module, ...$keys) { return !($module === 'training' && in_array($keys[0],array('attendance','ownattendance'),true)); }
 }
 attendanceReject(fn() => (new TrainingAttendanceService(bookingStore($db, 2, new NoAttendanceUser())))->sheet($sessionId, $slotId), 'TrainingAccessDenied');
 // Reuse the fresh-connection barrier harness. Each worker starts with expected revision zero.

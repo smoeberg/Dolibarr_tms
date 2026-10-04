@@ -4,7 +4,7 @@ require_once __DIR__.'/class/trainingattendanceservice.class.php';
 $access = trainingAccess();
 $attendance = new TrainingAttendanceService(new TrainingStore($db, $access));
 $id = GETPOSTINT('id'); $slotId = GETPOSTINT('slot_id');
-try { $sheet = $attendance->sheet($id, $slotId); } catch (Throwable $e) { accessforbidden(); }
+try { $sheet = $attendance->sheet($id, $slotId); $attendanceRights = $attendance->permissions($id); } catch (Throwable $e) { accessforbidden(); }
 $error = ''; $conflict = false; $editId = GETPOSTINT('edit_id');
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $editId = GETPOSTINT('enrollment_id');
@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: '.dol_buildpath('/training/attendance.php', 1).'?id='.$id.'&slot_id='.$slotId); exit;
     } catch (Throwable $e) { $error = trainingError($e); $conflict = $e->getMessage() === 'TrainingAttendanceConflict'; }
 }
-try { $sheet = $attendance->sheet($id, $slotId); } catch (Throwable $e) { accessforbidden(); }
+try { $sheet = $attendance->sheet($id, $slotId); $attendanceRights = $attendance->permissions($id); } catch (Throwable $e) { accessforbidden(); }
 $session = $sheet['session']; $slot = $sheet['slot'];
 $baseUrl = dol_buildpath('/training/attendance.php', 1).'?id='.$id.'&slot_id='.$slotId;
 function trainingAttendanceSummary(?array $state, string $timezone): string {
@@ -32,7 +32,9 @@ function trainingAttendanceSummary(?array $state, string $timezone): string {
     return trainingEscape(implode(' · ', $parts));
 }
 llxHeader('', $langs->trans('TrainingAttendance'));
-print '<a href="'.dol_buildpath('/training/session.php', 1).'?id='.$id.'">'.trainingEscape($session->ref).'</a>';
+print '<a href="'.dol_buildpath('/training/myattendance.php', 1).'">'.trainingEscape($langs->trans('TrainingMySessions')).'</a> · ';
+if ($user->hasRight('training', 'session', 'read')) { print '<a href="'.dol_buildpath('/training/session.php', 1).'?id='.$id.'">'.trainingEscape($session->ref).'</a>'; }
+else { print trainingEscape($session->ref); }
 print '<h2>'.trainingEscape($langs->trans('TrainingAttendance')).'</h2><p>'.trainingEscape(trainingLocal($slot->start_utc, $session->timezone)).' — '.trainingEscape(trainingLocal($slot->end_utc, $session->timezone)).' · '.trainingEscape($session->timezone).'</p>';
 if ($error) { print '<div class="error">'.$error.'</div>'; }
 if ($conflict) { print '<p><a class="button" href="'.$baseUrl.'">'.trainingEscape($langs->trans('TrainingReloadAttendance')).'</a></p>'; }
@@ -49,7 +51,7 @@ print '<p>'.trainingEscape($langs->trans('TrainingAttendancePickerHelp')).'</p>'
 print '<div class="div-table-responsive"><table class="liste centpercent"><tr class="liste_titre"><th>'.trainingEscape($langs->trans('TrainingParticipant')).'</th><th>'.trainingEscape($langs->trans('Status')).'</th><th>'.trainingEscape($langs->trans('TrainingArrival')).'</th><th>'.trainingEscape($langs->trans('TrainingDeparture')).'</th><th>'.trainingEscape($langs->trans('TrainingPresentMinutes')).'</th><th>'.trainingEscape($langs->trans('TrainingLateMinutes')).'</th><th></th></tr>';
 $editing = null;
 foreach ($sheet['rows'] as $row) {
-    $canWrite = $session->status !== 'draft' && $user->hasRight('training', 'attendance', 'write') && (!$row->attendance_id || $user->hasRight('training', 'attendance', 'correct'));
+    $canWrite = $session->status !== 'draft' && $attendanceRights['write'] && (!$row->attendance_id || $attendanceRights['correct']);
     if ((int) $row->enrollment_id === $editId && $canWrite && !$conflict) { $editing = $row; }
     print '<tr><td>'.trainingEscape(trim($row->contact->firstname.' '.$row->contact->lastname)).' ('.trainingEscape($langs->trans('TrainingEnrollment'.ucfirst($row->enrollment_status))).')</td><td>'.trainingEscape($langs->trans('TrainingAttendance'.ucfirst($row->status)));
     if ($row->status === 'present' && $row->arrival_utc === null) { print '<br><small>'.trainingEscape($langs->trans('TrainingFullSlotAttestation')).'</small>'; }
