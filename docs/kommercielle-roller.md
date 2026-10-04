@@ -57,3 +57,7 @@ Holdkortets deltagerliste linker til **Kommercielle roller**. Søg standardtredj
 CI tester MySQL med ikke-standard prefix, gentaget schemaaktivering, forskellige/samme/tomme roller, native entity-/sælgeradgang, separate rettigheder, inaktive tredjeparter, forkert hold, auditrollback, afmelding/genbekræftelse og samtidige første registreringer/rettelser på uafhængige forbindelser. Officiel Dolibarr 24.0.2-installation tester standard Societe-oprettelse, rollelæsning, bevaret tabel ved deaktivering/genaktivering og HTTP-formular med native login, CSRF og revisionskonflikt.
 
 ZIP: `dist/module_training-0.8.0.zip`. GUI-upload/upgrade på målserveren er fortsat ikke verificeret (#3). Foretag backup, installér pakken og deaktivér/genaktivér modulet for additivt schema og nye rettigheder; tildel disse eksplicit til relevante koordinatorer. Ingen undervisere får kommerciel adgang automatisk.
+
+## Verificerede standardkilder
+
+Felter og rettigheder er kontrolleret mod [Dolibarr 24.0.2 `llx_societe.sql`](https://github.com/Dolibarr/dolibarr/blob/24.0.2/htdocs/install/mysql/tables/llx_societe.sql) og [modSociete](https://github.com/Dolibarr/dolibarr/blob/24.0.2/htdocs/core/modules/modSociete.class.php). CI læser/skriver standardstamdata gennem den officielle installation; modulservicen læser standardtabellens identitet, navn og aktive status og ændrer ikke standardtredjeparten.

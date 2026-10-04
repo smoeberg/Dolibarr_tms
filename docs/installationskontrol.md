@@ -8,7 +8,7 @@ CI opretter en disponibel Dolibarr-installation med den officielle kildekode fra
 
 `tests/native_runtime.php` bruger den rigtige `master.inc.php`, `activateModule()` og `unActivateModule()`. Den kontrollerer:
 
-- Modul og afhængigheder aktiveres, 18 rettighedsdefinitioner og modulets to menupunkter registreres.
+- Modul og afhængigheder aktiveres, 21 rettighedsdefinitioner og modulets to menupunkter registreres.
 - Standardtabeller og Training-tabeller findes gennem Dolibarrs egen SQL-loader.
 - Standard `Product` opretter kursusservicen; standard `Contact` opretter deltageren. Modulets normale loaders genindlæser dem.
 - Kursusversion publiceres, hold åbnes, navngiven deltager reserveres og bekræftes og fremmøde registreres. En intern standardbruger tildeles holdet og får holdet i mine hold.

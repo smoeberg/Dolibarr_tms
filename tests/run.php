@@ -133,7 +133,8 @@ rejects(fn() => $normalize(array('status'=>'late')), 'TrainingAttendanceTimesReq
 rejects(fn() => $normalize(array('status'=>'absent', 'arrival'=>'2026-10-20T09:00:00+02:00')), 'TrainingAbsentHasTimes');
 rejects(fn() => $normalize(array('status'=>'present', 'arrival'=>'2026-10-20T09:00:00+01:00', 'departure'=>'2026-10-20T16:00:00+01:00')), 'TrainingInvalidAttendanceTimes');
 rejects(fn() => $normalize(array('status'=>'present', 'arrival'=>'2026-10-20T08:59:00+02:00', 'departure'=>'2026-10-20T16:00:00+02:00')), 'TrainingInvalidAttendanceTimes');
-check(count($module->rights) === 18 && count(array_unique(array_column($module->rights, 0))) === 18, 'distinct module permissions registered');
+check(count($module->rights) === 21 && count(array_unique(array_column($module->rights, 0))) === 21, 'distinct module permissions registered');
+check(array_column($module->rights,0) === range(504851,504871), 'existing rights stay stable and commercial rights append');
 echo 'All attendance normalization tests passed.'.PHP_EOL;
 require_once __DIR__.'/../htdocs/custom/training/class/trainingbillingamount.class.php';
 $split = TrainingBillingAmount::distribute('100.00000001', '125.00000001', array(3=>1,1=>1,2=>1));
