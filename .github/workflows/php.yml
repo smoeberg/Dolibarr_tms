@@ -1,0 +1,32 @@
+name: PHP foundation
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container: php:8.4-cli
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: training_test_only
+          MYSQL_DATABASE: training_test
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -ptraining_test_only"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax
+        run: find htdocs tests -name '*.php' -print0 | xargs -0 -n 1 php -l
+      - name: Unit and service tests
+        run: php tests/run.php
+      - name: MySQL driver
+        run: docker-php-ext-install mysqli
+      - name: MySQL schema and transaction tests
+        run: php tests/mysql.php
+        env:
+          TRAINING_TEST_MYSQL_HOST: mysql
+          TRAINING_TEST_MYSQL_PASSWORD: training_test_only
