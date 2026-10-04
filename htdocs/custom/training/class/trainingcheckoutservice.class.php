@@ -5,6 +5,7 @@ require_once __DIR__.'/trainingenrollmentservice.class.php';
 require_once __DIR__.'/trainingpriceservice.class.php';
 require_once __DIR__.'/trainingschedulingservice.class.php';
 require_once __DIR__.'/trainingattendanceservice.class.php';
+require_once __DIR__.'/trainingoutboxservice.class.php';
 
 /**
  * Complete checkout flow service for Training module.
@@ -18,6 +19,7 @@ final class TrainingCheckoutService
     private TrainingEnrollmentService $enrollmentService;
     private TrainingPriceService $priceService;
     private TrainingSchedulingService $schedulingService;
+    private TrainingOutboxService $outboxService;
 
     public function __construct(
         TrainingStore $store,
@@ -28,6 +30,7 @@ final class TrainingCheckoutService
         $this->enrollmentService = new TrainingEnrollmentService($store);
         $this->priceService = new TrainingPriceService($store);
         $this->schedulingService = new TrainingSchedulingService($store);
+        $this->outboxService = new TrainingOutboxService($store);
     }
 
     // ========================================================================
@@ -750,39 +753,51 @@ final class TrainingCheckoutService
 
     private function queueConfirmationEmails(int $checkoutSessionId, array $enrollmentIds): void
     {
-        $entity = $this->store->access->entity();
-        $actor = $this->store->access->actor();
-        $now = $this->store->now();
         $checkoutSession = $this->loadCheckoutSession($checkoutSessionId);
         
         foreach ($enrollmentIds as $enrollmentId) {
-            $enrollment = $this->getEnrollmentInfo($enrollmentId);
-            $contactId = $enrollment['fk_socpeople'];
-            
-            // Get contact email
-            $contact = $this->store->contact($contactId);
-            $email = $contact->email ?? '';
-            
-            if (empty($email)) {
-                continue;
+            try {
+                $enrollment = $this->getEnrollmentInfo($enrollmentId);
+                $contactId = $enrollment['fk_socpeople'];
+                
+                // Get contact email
+                $contact = $this->store->contact($contactId);
+                $email = $contact->email ?? '';
+                
+                if (empty($email)) {
+                    continue;
+                }
+                
+                // Get participant name
+                $firstName = $contact->firstname ?? '';
+                $lastName = $contact->lastname ?? '';
+                
+                // Generate email subject and body
+                $subject = $this->getEmailSubject($checkoutSessionId);
+                $bodyText = $this->getEmailBody($checkoutSessionId, $enrollmentId);
+                
+                // Queue email via OutboxService
+                $this->outboxService->queueMessage(
+                    'enrollment',
+                    $enrollmentId,
+                    'confirmation',
+                    'contact',
+                    $contactId,
+                    $email,
+                    $subject,
+                    $bodyText,
+                    null,
+                    array(
+                        'checkout_session_id' => $checkoutSessionId,
+                        'participant_name' => $firstName.' '.$lastName
+                    )
+                );
+            } catch (Throwable $e) {
+                $this->logCheckoutEvent('email_queue_failed', array(
+                    'enrollment_id' => $enrollmentId,
+                    'error' => $e->getMessage()
+                ));
             }
-            
-            // Queue email in outbox (will be processed by cron job)
-            $this->store->query(
-                'INSERT INTO '.$this->store->table('outbox').
-                ' (entity, object_type, fk_object, action, recipient_type, recipient_id, '
-                'recipient_email, subject, body_text, status, datec, fk_user_author, '
-                'changed_at, fk_user_modifier) VALUES ('
-                .$entity.', '
-                .$this->store->text('enrollment').', '.$enrollmentId.', '
-                .$this->store->text('confirmation').', '
-                .$this->store->text('contact').', '.$contactId.', '
-                .$this->store->text($email).', '
-                .$this->store->text($this->getEmailSubject($checkoutSessionId)).', '
-                .$this->store->text($this->getEmailBody($checkoutSessionId, $enrollmentId)).', '
-                .$this->store->text('pending').', '
-                .$now.', '.$actor.', '.$now.', '.$actor.')'
-            );
         }
     }
 
