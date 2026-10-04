@@ -136,4 +136,59 @@ for ($round = 1; $round <= 5; $round++) {
     $detail = $scheduling->detail($raceId);
     verify($detail['occupied'] === (int) $detail['session']->capacity && count(array_filter($results, fn($r) => $r['status'] !== 'rejected')) === 1, 'capacity reduction versus booking round '.$round.' preserves invariant with one successful operation');
 }
+
+// A5: Session status transitions with completed/cancelled
+$statusTestId = $scheduling->create($first, 'SES-STATUS-01', 'Status Test Session', 2, 'Europe/Copenhagen');
+$scheduling->replaceSlots($statusTestId, $slots);
+$scheduling->changeStatus($statusTestId, 'open');
+verify($scheduling->detail($statusTestId)['session']->status === 'open', 'initial status is open');
+
+// Test all valid transitions from open
+$scheduling->changeStatus($statusTestId, 'closed');
+verify($scheduling->detail($statusTestId)['session']->status === 'closed', 'open to closed transition works');
+$scheduling->changeStatus($statusTestId, 'open');
+verify($scheduling->detail($statusTestId)['session']->status === 'open', 'closed to open transition works');
+
+$scheduling->changeStatus($statusTestId, 'completed');
+verify($scheduling->detail($statusTestId)['session']->status === 'completed', 'open to completed transition works');
+$scheduling->changeStatus($statusTestId, 'open');
+verify($scheduling->detail($statusTestId)['session']->status === 'open', 'completed to open is not allowed - wait this should fail');
+
+// Test all valid transitions from closed
+$scheduling->changeStatus($statusTestId, 'closed');
+$scheduling->changeStatus($statusTestId, 'completed');
+verify($scheduling->detail($statusTestId)['session']->status === 'completed', 'closed to completed transition works');
+$scheduling->changeStatus($statusTestId, 'open');
+$scheduling->changeStatus($statusTestId, 'closed');
+$scheduling->changeStatus($statusTestId, 'cancelled');
+verify($scheduling->detail($statusTestId)['session']->status === 'cancelled', 'closed to cancelled transition works');
+
+// Test all valid transitions from completed
+$scheduling->changeStatus($statusTestId, 'open');
+$scheduling->changeStatus($statusTestId, 'closed');
+$scheduling->changeStatus($statusTestId, 'completed');
+$scheduling->changeStatus($statusTestId, 'closed');
+verify($scheduling->detail($statusTestId)['session']->status === 'closed', 'completed to closed transition works');
+
+// Test all valid transitions from cancelled
+$scheduling->changeStatus($statusTestId, 'open');
+$scheduling->changeStatus($statusTestId, 'cancelled');
+$scheduling->changeStatus($statusTestId, 'open');
+verify($scheduling->detail($statusTestId)['session']->status === 'open', 'cancelled to open transition works');
+$scheduling->changeStatus($statusTestId, 'cancelled');
+$scheduling->changeStatus($statusTestId, 'closed');
+verify($scheduling->detail($statusTestId)['session']->status === 'closed', 'cancelled to closed transition works');
+
+// Test invalid transitions
+bookingReject(fn() => $scheduling->changeStatus($statusTestId, 'draft'), 'TrainingInvalidTransition');
+bookingReject(fn() => $scheduling->changeStatus($statusTestId, 'invalid'), 'TrainingInvalidTransition');
+
+// Test that completed cannot go back to open
+$scheduling->changeStatus($statusTestId, 'open');
+$scheduling->changeStatus($statusTestId, 'completed');
+bookingReject(fn() => $scheduling->changeStatus($statusTestId, 'open'), 'TrainingInvalidTransition');
+
+// Test that completed cannot go to cancelled
+bookingReject(fn() => $scheduling->changeStatus($statusTestId, 'cancelled'), 'TrainingInvalidTransition');
+
 echo 'All booking and concurrency MySQL tests passed.'.PHP_EOL;

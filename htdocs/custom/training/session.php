@@ -62,8 +62,26 @@ if ($user->hasRight('training', 'session', 'write')) {
         print '<p>'.$langs->trans('TrainingSlotInputHelp').'</p><textarea name="slots" rows="5" class="quatrevingtpercent">'.trainingEscape(GETPOSTISSET('slots') ? GETPOST('slots', 'alphanohtml') : implode("\n", $slotText)).'</textarea><br><button class="button">'.$langs->trans('Save').'</button></form>';
     }
     trainingForm('status', $id);
-    $next = $session->status === 'open' ? 'closed' : 'open';
-    print '<input type="hidden" name="next" value="'.$next.'"><button class="button">'.$langs->trans($next === 'open' ? 'TrainingOpenSession' : 'TrainingCloseSession').'</button></form>';
+    $allowedTransitions = array(
+        'draft' => array('open'),
+        'open' => array('closed', 'completed', 'cancelled'),
+        'closed' => array('open', 'completed', 'cancelled'),
+        'completed' => array('closed'),
+        'cancelled' => array('open', 'closed')
+    );
+    $nextOptions = $allowedTransitions[$session->status] ?? array();
+    if (!empty($nextOptions)) {
+        if (count($nextOptions) === 1) {
+            $next = $nextOptions[0];
+            print '<input type="hidden" name="next" value="'.$next.'"><button class="button">'.$langs->trans('TrainingSession'.ucfirst($next)).'</button></form>';
+        } else {
+            print '<select name="next" class="flat">';
+            foreach ($nextOptions as $option) {
+                print '<option value="'.$option.'">'.$langs->trans('TrainingSession'.ucfirst($option)).'</option>';
+            }
+            print '</select> <button class="button">'.$langs->trans('TrainingChangeStatus').'</button></form>';
+        }
+    }
     trainingForm('capacity', $id);
     print '<label>'.$langs->trans('TrainingCapacity').' <input name="capacity" type="number" min="1" max="10000" value="'.(int) $session->capacity.'"></label> <button class="button">'.$langs->trans('Save').'</button></form>';
 }

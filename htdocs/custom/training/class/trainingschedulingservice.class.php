@@ -46,9 +46,15 @@ final class TrainingSchedulingService
         $this->allow('write');
         $this->s->transaction(function () use ($id, $next) {
             $session = $this->s->session($id, true);
-            if (!in_array($next, array('open', 'closed'), true)) { throw new RuntimeException('TrainingInvalidTransition'); }
+            if (!in_array($next, array('open', 'closed', 'completed', 'cancelled'), true)) { throw new RuntimeException('TrainingInvalidTransition'); }
             if ($session->status === $next) { return; }
-            $allowed = array('draft' => array('open'), 'open' => array('closed'), 'closed' => array('open'));
+            $allowed = array(
+                'draft' => array('open'),
+                'open' => array('closed', 'completed', 'cancelled'),
+                'closed' => array('open', 'completed', 'cancelled'),
+                'completed' => array('closed'),
+                'cancelled' => array('open', 'closed')
+            );
             if (!in_array($next, $allowed[$session->status] ?? array(), true)) { throw new RuntimeException('TrainingInvalidTransition'); }
             if ($next === 'open') {
                 $slots = $this->slots($id); $minutes = 0;
