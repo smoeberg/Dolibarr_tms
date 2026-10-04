@@ -57,6 +57,7 @@ with (repo / '.ci/http.log').open('w') as log:
             f'/custom/training/attendance.php?id={fixture["session"]}&slot_id={fixture["slot"]}': 'Participant',
             f'/custom/training/trainers.php?id={fixture["session"]}': 'NATIVE-CI',
             f'/custom/training/billing.php?id={fixture["session"]}': 'NATIVE-CI',
+            f'/custom/training/commercial.php?id={fixture["session"]}&enrollment_id={fixture["enrollment"]}': 'Native Buyer æøå',
             '/custom/training/myattendance.php': 'NATIVE-CI',
             '/custom/training/overview.php?search=NATIVE-CI': 'NATIVE-CI',
             f'/custom/training/reservations.php?id={fixture["session"]}': 'Participant',
@@ -66,6 +67,20 @@ with (repo / '.ci/http.log').open('w') as log:
             page = request(anonymous, path)
             assert 'name="password"' not in page and expected in unescape(page), f'{path}: expected rendered content missing'
             print('OK: authenticated native HTTP page', path)
+        commercial_path = f'/custom/training/commercial.php?id={fixture["session"]}&enrollment_id={fixture["enrollment"]}'
+        page = request(anonymous, commercial_path)
+        parser = Inputs(); parser.feed(page)
+        fields = dict(token=parser.values['token'], id=fixture['session'], enrollment_id=fixture['enrollment'],
+                      action='roles', revision='1', buyer=str(fixture['company']), payer='', employer='', reason='Native HTTP role correction')
+        page = request(anonymous, commercial_path, fields)
+        assert 'Commercial roles saved.' in unescape(page), 'Commercial role form failed'
+        assert 'Native HTTP role correction' in unescape(page), 'Commercial history reason missing'
+        page = request(anonymous, commercial_path, dict(fields, payer=str(fixture['company']), reason='Stale role form'))
+        assert 'Another user changed these roles.' in unescape(page), 'Stale commercial form was not rejected'
+        forged = dict(fields, token='invalid-token', revision='2', buyer='', reason='Forged role form')
+        page = request(anonymous, commercial_path, forged)
+        assert 'Forged role form' not in unescape(page), 'Invalid CSRF token mutated role history'
+        print('OK: native commercial form, history, revision conflict and CSRF')
         path = f'/custom/training/reservations.php?id={fixture["reservation_session"]}'
         page = request(anonymous, path)
         parser = Inputs(); parser.feed(page)

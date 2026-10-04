@@ -2,15 +2,15 @@
 
 Et nyt kursusadministrationsmodul til Dolibarr med online tilmelding gennem Dolibarr Website.
 
-**Status:** Intern kerne 0.7.0: kursusprofiler, programversioner, hold, undervisningsblokke, administrativ tilmelding, kapacitetsstyring basis-fremmøde allokering af standardfakturalinjer og hold-specifik underviseradgang navngivne pladsreservationer og fælles hold-/kapacitetsoverblik. Online checkout er planlagt. Arkitektur og standard-/gapkortlægning er dokumenteret i version 2.6.
+**Status:** Intern kerne 0.8.0: kursusprofiler, programversioner, hold, undervisningsblokke, administrativ tilmelding, kapacitetsstyring basis-fremmøde allokering af standardfakturalinjer og hold-specifik underviseradgang navngivne pladsreservationer og fælles hold-/kapacitetsoverblik. Online checkout er planlagt. Arkitektur og standard-/gapkortlægning er dokumenteret i version 2.6.
 
 **Målmiljø:** Dolibarr 24.0.2, PHP 8.4.26 og MySQL. CI bruger PHP 8.4 og MySQL 8.0; den konkrete MySQL-serverversion og fuld installation/UI på målserveren mangler fortsat at blive verificeret.
 
 ## Download og installation
 
-Download **[module_training-0.7.0.zip](dist/module_training-0.7.0.zip)** (vælg “Download raw file” på GitHub). Upload pakken direkte i Dolibarr under **Opsætning → Moduler/Applikationer → Installer eksternt modul**, og aktivér Training. Pakken indeholder kun det installerbare modul; ingen kerneændringer eller ekstra afhængighedsinstallation er nødvendig.
+Download **[module_training-0.8.0.zip](dist/module_training-0.8.0.zip)** (vælg “Download raw file” på GitHub). Upload pakken direkte i Dolibarr under **Opsætning → Moduler/Applikationer → Installer eksternt modul**, og aktivér Training. Pakken indeholder kun det installerbare modul; ingen kerneændringer eller ekstra afhængighedsinstallation er nødvendig.
 
-Se [holdoverblik 0.7.0](docs/holdoverblik.md), [pladsreservationer 0.6.0](docs/pladsreservationer.md), [undervisertildeling og rolleopsætning 0.5.0](docs/underviseradgang.md), [fakturalinjefordeling og installationsvejledning 0.4.0](docs/fakturalinjefordeling.md) samt [den nye fremmøde-UI 0.4.1](docs/fremmoede-ui.md) og [fremmøderegler](docs/fremmoede.md). Modulkoden ligger i [`htdocs/custom/training`](htdocs/custom/training). Tidligere leverancer er beskrevet i [kursusgrundlaget](docs/udvikling.md) og [hold/tilmelding](docs/hold-og-tilmelding.md). Brug en testinstallation før produktion.
+Se [holdoverblik 0.8.0](docs/holdoverblik.md), [pladsreservationer 0.6.0](docs/pladsreservationer.md), [undervisertildeling og rolleopsætning 0.5.0](docs/underviseradgang.md), [fakturalinjefordeling og installationsvejledning 0.4.0](docs/fakturalinjefordeling.md) samt [den nye fremmøde-UI 0.4.1](docs/fremmoede-ui.md) og [fremmøderegler](docs/fremmoede.md). Modulkoden ligger i [`htdocs/custom/training`](htdocs/custom/training). Tidligere leverancer er beskrevet i [kursusgrundlaget](docs/udvikling.md) og [hold/tilmelding](docs/hold-og-tilmelding.md). Brug en testinstallation før produktion.
 
 ## Dokumentation
 
@@ -65,3 +65,5 @@ Estimater og driftsmål i arkitekturen er foreløbige. Dokumentationen er et udv
 Udviklingsarbejdsgangen er beskrevet i [CONTRIBUTING.md](CONTRIBUTING.md): en branch pr. opgave og pull request før merge til main.
 
 Installationskontrollen og den resterende målservertest er beskrevet i [docs/installationskontrol.md](docs/installationskontrol.md).
+
+0.8.0 tilføjer [kommercielle roller pr. tilmelding](docs/kommercielle-roller.md): køber, forventet betaler og arbejdsgiver linker til Dolibarrs standardtredjeparter med separate rettigheder, revision og audit. Prisaccept, ordre og offentlig checkout er endnu ikke leveret.

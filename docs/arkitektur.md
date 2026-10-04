@@ -1252,3 +1252,8 @@ Bidrag: brugerens krav og præciseringer, de vedhæftede reviews og den udførte
 | GDPR / EDPB / DPIA | Databeskyttelsesforordning / europæisk databeskyttelsesråd / konsekvensanalyse af persondatabehandling |
 
 LMS-standarder, franske eksportformater og offentlige finansieringsordninger er ikke integrationskrav i MVP. Kilder og kontrakter for sådanne tilføjes ved et konkret valgt integrationsscope; de udgør ikke skjulte forudsætninger for denne leverance.
+
+
+### Implementationsnote — 0.8.0: aktuelle kommercielle roller
+
+[Kommercielle roller](kommercielle-roller.md) registrerer køber, forventet betaler og arbejdsgiver pr. tilmelding som nullable links til standard `societe`. Deltager forbliver standard Contact. Ingen automatisk udledning fra kontaktens virksomhed. Registreringen har egne read/write/correct-rettigheder, holdmutex, revision og atomisk audit. Dette er et registreringsgrundlag: accepteret pris/identitetssnapshot, ordre, fakturamodtager, finansieringsandele og faktisk betaling er ikke implementeret eller udledt af rollerne.

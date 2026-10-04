@@ -102,6 +102,14 @@ final class TrainingAccess
         if (!$r || !$db->fetch_object($r)) { throw new RuntimeException('TrainingInvoiceNotAccessible'); }
     }
 
+    public function thirdpartyEntityScope(): string { return implode(',', $this->thirdpartyEntities); }
+    public function thirdpartyRestriction(string $alias): string {
+        return $this->user->hasRight('societe', 'client', 'voir') ? '' : ' AND EXISTS (SELECT 1 FROM %PREFIX%societe_commerciaux sc WHERE sc.fk_soc='.$alias.'.rowid AND sc.fk_user='.$this->actor().')';
+    }
+    public function requireThirdpartyRead(): void {
+        if (!$this->user->hasRight('societe', 'lire')) { throw new RuntimeException('TrainingThirdpartyNotAccessible'); }
+    }
+
     public function requireContactRead(): void
     {
         if (!$this->user->hasRight('societe', 'contact', 'lire')) { throw new RuntimeException('TrainingContactNotAccessible'); }

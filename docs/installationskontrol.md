@@ -4,7 +4,7 @@
 
 CI opretter en disponibel Dolibarr-installation med den officielle kildekode fra tag `24.0.2`, PHP 8.4 og MySQL 8.0. Databasen deles med de eksisterende integrationstest, men standardinstallationen bruger `llx_`, mens de syntetiske test bruger `tst_`. Ingen produktionsinstallation kontaktes.
 
-`tests/native_install.py` skriver en testkonfiguration, udpakker den leverede `dist/module_training-0.7.0.zip` under standardstien `htdocs/custom/` og kører Dolibarrs egne `install/step2.php` og `install/step5.php`. Disse opretter standardtabeller, referencedata, administrator og installationslås. Konfigurationsskrivning og ZIP-udpakning sker automatisk; installationsguidens formularer og modulets uploadformular betjenes ikke i denne test.
+`tests/native_install.py` skriver en testkonfiguration, udpakker den leverede `dist/module_training-0.8.0.zip` under standardstien `htdocs/custom/` og kører Dolibarrs egne `install/step2.php` og `install/step5.php`. Disse opretter standardtabeller, referencedata, administrator og installationslås. Konfigurationsskrivning og ZIP-udpakning sker automatisk; installationsguidens formularer og modulets uploadformular betjenes ikke i denne test.
 
 `tests/native_runtime.php` bruger den rigtige `master.inc.php`, `activateModule()` og `unActivateModule()`. Den kontrollerer:
 
@@ -23,7 +23,7 @@ Testene kræver `CI=true` og placering i `.ci/dolibarr`; de er beregnet til CI's
 CI erstatter ikke kontrol af den konkrete server, dens installerede moduler, filrettigheder, PHP-konfiguration, MySQL-version og eventuelle ID-konflikter. Før første driftsbrug:
 
 1. Tag database- og filbackup, og registrér præcise Dolibarr-, PHP- og MySQL-versioner samt SQL mode og storage engine.
-2. Kontrollér det foreløbige modul-ID `504850` og rettigheds-ID'er `504851–504868` for konflikter.
+2. Kontrollér det foreløbige modul-ID `504850` og rettigheds-ID'er `504851–504871` for konflikter.
 3. Upload ZIP via **Opsætning → Moduler/applikationer → Installer eksternt modul**. Kontrollér at den installeres i `htdocs/custom/training/`.
 4. Aktivér Training, kontrollér Services, Tredjeparter og Fakturaer samt kursus-/holdfaner på en standardservice.
 5. Giv en intern koordinator relevante Training- og standardrettigheder. Afprøv kursusversion, hold, navngiven tilmelding og fremmøde.
@@ -33,3 +33,5 @@ CI erstatter ikke kontrol af den konkrete server, dens installerede moduler, fil
 9. Registrér resultat, dato, tester og fejl i issue #3. Gem eventuelle skærmbilleder uden personoplysninger.
 
 Issue #3 skal fortsat stå åbent, indtil målserverens kontrol er dokumenteret. Online checkout og betaling indgår endnu ikke i den leverede funktionalitet.
+
+0.8.0 tilføjer `training_enrollment_commercial` og rettigheder 504869–504871. Verificér standardtredjepart-valg, rollegemning og adgangsbegrænsning efter upgrade.
