@@ -33,7 +33,9 @@ jobs:
           repository: Dolibarr/dolibarr
           ref: '24.0.2'
           path: .ci/dolibarr
-          sparse-checkout: htdocs/core/modules
+          sparse-checkout: |
+            htdocs/core/modules
+            htdocs/install/mysql/tables
       - name: Reproducible installable module
         run: python3 tests/package.py
       - name: Official Dolibarr module descriptor
