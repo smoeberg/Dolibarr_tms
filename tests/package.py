@@ -10,7 +10,7 @@ builder = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(builder)
 with tempfile.TemporaryDirectory() as directory:
     rebuilt = builder.build(Path(directory) / 'rebuilt.zip')
-    shipped = root / 'dist/module_training-0.4.1.zip'
+    shipped = root / 'dist/module_training-0.5.0.zip'
     assert rebuilt.read_bytes() == shipped.read_bytes(), 'Committed archive differs from source'
     with zipfile.ZipFile(shipped) as archive:
         assert archive.testzip() is None

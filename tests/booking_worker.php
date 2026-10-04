@@ -12,7 +12,19 @@ try {
         if (microtime(true) > $deadline) { throw new RuntimeException('Barrier timeout'); }
         usleep(10000);
     }
-    if (str_starts_with($mode, 'billing')) {
+    if ($mode === 'trainerrevoke') {
+        require_once __DIR__.'/../htdocs/custom/training/class/trainingtrainerservice.class.php';
+        (new TrainingTrainerService($store))->change($sessionId,$value,1,'revoked','Concurrent removal');
+        echo json_encode(array('status'=>'revoked'));
+    } elseif ($mode === 'trainerrecord') {
+        require_once __DIR__.'/../htdocs/custom/training/class/trainingattendanceservice.class.php';
+        $ownUser=new OwnAttendanceUser();$ownUser->id=$value;
+        $ownStore=bookingStore(new MysqlTestDb(),2,$ownUser);
+        $slot=$ownStore->rows('SELECT rowid FROM tst_training_session_slot WHERE fk_session='.$sessionId.' ORDER BY rowid')[0];
+        $enrollment=$ownStore->rows("SELECT rowid FROM tst_training_enrollment WHERE fk_session=".$sessionId." AND status='confirmed' ORDER BY rowid")[0];
+        (new TrainingAttendanceService($ownStore))->record($sessionId,(int) $slot->rowid,(int) $enrollment->rowid,0,array('status'=>'present'));
+        echo json_encode(array('status'=>'recorded'));
+    } elseif (str_starts_with($mode, 'billing')) {
         require_once __DIR__.'/../htdocs/custom/training/class/trainingbillingservice.class.php';
         $invoiceId = $value % 10000;
         if ($mode === 'billing-other') { $sessionId = (int) $store->rows("SELECT rowid FROM tst_training_session WHERE ref='BILLING-OTHER' AND entity=2")[0]->rowid; }
@@ -35,7 +47,7 @@ try {
         echo json_encode(array('status' => 'confirmed', 'id' => $id));
     }
 } catch (Throwable $e) {
-    $expected = array('TrainingSessionFull', 'TrainingCapacityBelowOccupancy', 'TrainingAttendanceConflict', 'TrainingBillingConflict', 'TrainingInvoiceLineAlreadyAllocated');
+    $expected = array('TrainingSessionFull', 'TrainingCapacityBelowOccupancy', 'TrainingAttendanceConflict', 'TrainingBillingConflict', 'TrainingInvoiceLineAlreadyAllocated', 'TrainingAccessDenied');
     echo json_encode(array('status' => 'rejected', 'reason' => $e->getMessage()));
     if (!in_array($e->getMessage(), $expected, true)) { exit(1); }
 }

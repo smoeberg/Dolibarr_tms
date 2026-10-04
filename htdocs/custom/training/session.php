@@ -39,6 +39,9 @@ print '<p>'.trainingEscape($langs->trans('TrainingSession'.ucfirst($session->sta
 if ($user->hasRight('training', 'billing', 'read') && $user->hasRight('facture', 'lire')) {
     print '<p><a href="'.dol_buildpath('/training/billing.php', 1).'?id='.$id.'">'.trainingEscape($langs->trans('TrainingBilling')).'</a></p>';
 }
+if ($user->hasRight('training', 'trainer', 'read') && $user->hasRight('user', 'user', 'lire')) {
+    print '<p><a href="'.dol_buildpath('/training/trainers.php', 1).'?id='.$id.'">'.trainingEscape($langs->trans('TrainingTrainers')).'</a></p>';
+}
 print '<h3>'.$langs->trans('TrainingSlots').'</h3><ul>';
 $slotText = array();
 foreach ($detail['slots'] as $slot) {

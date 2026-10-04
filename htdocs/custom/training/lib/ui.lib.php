@@ -7,7 +7,7 @@ function trainingAccess(): TrainingAccess {
     global $user, $conf, $langs;
     if (!isModEnabled('training')) { accessforbidden(); }
     $langs->loadLangs(array('products', 'training@training'));
-    return new TrainingAccess($user, (int) $conf->entity, getEntity('product'), getEntity('contact'), getEntity('societe'));
+    return new TrainingAccess($user, (int) $conf->entity, getEntity('product'), getEntity('contact'), getEntity('societe'), '0,'.getEntity('user'));
 }
 function trainingEscape($text): string { return dol_escape_htmltag((string) $text); }
 function trainingCapacity(): int {
