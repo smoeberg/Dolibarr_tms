@@ -2,13 +2,15 @@
 
 Et nyt kursusadministrationsmodul til Dolibarr med online tilmelding gennem Dolibarr Website.
 
-**Status:** Arkitektur og standard-/gapkortlægning, version 2.5. Kodegrundlaget **0.1.0** indeholder kursusprofiler og programversioner. **0.2.0** på en feature-branch tilføjer hold, undervisningsblokke og administrativ tilmelding med kapacitetsstyring. Installationstest mod Dolibarr og kapacitets-/betalingsprototyper udestår.
+**Status:** Intern kerne 0.3.0: kursusprofiler, programversioner, hold, undervisningsblokke, administrativ tilmelding, kapacitetsstyring og basis-fremmøde. Online checkout er planlagt. Arkitektur og standard-/gapkortlægning er dokumenteret i version 2.5.
 
-**Målversion:** Dolibarr 24.0.2, valgt af brugeren. PHP 8.4.26 og MySQL er oplyst via brugerens installationscheck. MySQL-version, testmiljø og betalingsudbyder er endnu ikke afklaret. Kompatibilitetstest mod målversionen udestår.
+**Målmiljø:** Dolibarr 24.0.2, PHP 8.4.26 og MySQL. CI bruger PHP 8.4 og MySQL 8.0; den konkrete MySQL-serverversion og fuld installation/UI på målserveren mangler fortsat at blive verificeret.
 
-## Kode og installation
+## Download og installation
 
-Modulkoden ligger i [`htdocs/custom/training`](htdocs/custom/training). Se [udviklingsstatus, tests og installationsvejledning](docs/udvikling.md) før testinstallation. Se [hold og tilmelding 0.2.0](docs/hold-og-tilmelding.md) for den nye leverance og dens grænser. Online checkout er endnu ikke implementeret.
+Download **[module_training-0.3.0.zip](dist/module_training-0.3.0.zip)** (vælg “Download raw file” på GitHub). Upload pakken direkte i Dolibarr under **Opsætning → Moduler/Applikationer → Installer eksternt modul**, og aktivér Training. Pakken indeholder kun det installerbare modul; ingen kerneændringer eller ekstra afhængighedsinstallation er nødvendig.
+
+Se [installationsvejledning, fremmøderegler og testgrænser](docs/fremmoede.md). Modulkoden ligger i [`htdocs/custom/training`](htdocs/custom/training). Tidligere leverancer er beskrevet i [kursusgrundlaget](docs/udvikling.md) og [hold/tilmelding](docs/hold-og-tilmelding.md). Brug en testinstallation før produktion.
 
 ## Dokumentation
 
@@ -45,7 +47,7 @@ Dokumentet henviser til screenshots og reviewtekster fra designarbejdet. Disse b
 | Fase | Indhold | Status |
 | --- | --- | --- |
 | Fase 0 | Standard-/gapkortlægning og målarkitektur | Dokumenteret; miljøvalg og runtime-prototyper udestår |
-| Fase 1A | Intern kerne: kursusversioner, hold, blokke, tilmeldinger, økonomirelationer og basis-fremmøde | Påbegyndt: kursusgrundlag 0.1.0 samt hold/tilmelding 0.2.0 til review |
+| Fase 1A | Intern kerne: kursusversioner, hold, blokke, tilmeldinger, økonomirelationer og basis-fremmøde | Kursusgrundlag, hold/tilmelding og basis-fremmøde implementeret; økonomirelationer mangler |
 | Fase 1B | Online tilmelding: ét hold pr. checkout, navngivne deltagere, én betalingsudbyder, godkendt B2B-faktura, outbox og afstemning | Planlagt |
 | Fase 2 | Udvidelser som certifikater, avanceret bedømmelse, ventelisteautomatik og portal | Udskudt |
 
@@ -55,9 +57,9 @@ Dokumentet henviser til screenshots og reviewtekster fra designarbejdet. Disse b
 2. Vælg og afprøv én betalingsudbyder og én betalingsvariant.
 3. Verificér standardobjekter, adgangskontrol, Website-interface og jobdrift på målversionen.
 4. Afprøv kapacitet og pladsreservation under samtidighed samt betaling efter reservationsudløb.
-5. Omsæt den logiske datamodel til versionsbundne migrationsfiler og et modul med det beskrevne servicelag.
+5. Implementér linjeallokering til standardøkonomien og derefter online checkout med reservation, outbox og afstemning.
 
-Estimater og driftsmål i arkitekturen er foreløbige. Dokumentationen er et udviklingsgrundlag; den er ikke dokumentation for et allerede fungerende modul.
+Estimater og driftsmål i arkitekturen er foreløbige. Dokumentationen er et udviklingsgrundlag; runtime-test på det konkrete målmiljø udestår.
 
 
 Udviklingsarbejdsgangen er beskrevet i [CONTRIBUTING.md](CONTRIBUTING.md): en branch pr. opgave og pull request før merge til main.
