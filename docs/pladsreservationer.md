@@ -56,7 +56,7 @@ UI-fristen er fast 15 minutter. Det interne serviceinterface accepterer 1–60 m
 
 Upload `dist/module_training-0.6.0.zip` via standardinstallationen. Ved opgradering: backup, upload, deaktivér/genaktivér Training. To nye tabeller oprettes additivt; ingen eksisterende kolonner eller standardtabeller ændres. Deaktivering bevarer reservationer og historik. ID-konflikter og målserverens GUI-kontrol skal fortsat verificeres, se issue #3 og installationskontrol.md.
 
-CI tester MySQL-skema med ikke-standardpræfiks, gentagen installation, idempotens, udløb uden job, senere godkendelse, kontakt-/entity-/rettighedsafvisning, atomisk rollback ved auditfejl samt samtidige, uafhængige PHP/MySQL-forbindelser. Kapløb omfatter sidste plads mod adminbooking, to grupper om tre pladser, gentagen nøgle, kapacitetsreduktion, konvertering versus admin og konvertering versus frigivelse. Den officielle Dolibarr-installation bruger den nye ZIP og tester reservation → godkendelse → fremmøde samt reservationssidens HTTP-visning.
+CI tester MySQL-skema med ikke-standardpræfiks, gentagen installation, idempotens, udløb uden job, senere godkendelse, kontakt-/entity-/rettighedsafvisning, atomisk rollback ved auditfejl samt samtidige, uafhængige PHP/MySQL-forbindelser. Kapløb omfatter sidste plads mod adminbooking, to grupper om tre pladser, gentagen nøgle, kapacitetsreduktion, konvertering versus admin og konvertering versus frigivelse. Den officielle Dolibarr-installation bruger den nye ZIP og tester reservation → godkendelse → fremmøde samt reservationssidens HTTP-visning samt faktisk formularindsendelse, dublet-submit og gruppegodkendelse.
 
 ## Resterende før online drift
 

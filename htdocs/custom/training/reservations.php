@@ -3,7 +3,7 @@ require_once __DIR__.'/lib/ui.lib.php';
 $store = new TrainingStore($db, trainingAccess());
 $enrollments = new TrainingEnrollmentService($store); $scheduling = new TrainingSchedulingService($store); $id = GETPOSTINT('id');
 try { $detail = $scheduling->detail($id); $rows = $enrollments->reservations($id); } catch (Throwable $e) { accessforbidden(); }
-$error = ''; $key = $_SERVER['REQUEST_METHOD'] === 'POST' ? GETPOST('request_key', 'alphanohtml') : bin2hex(random_bytes(16));
+$error = ''; $key = $_SERVER['REQUEST_METHOD'] === 'POST' && GETPOST('action', 'aZ09') === 'reserve' ? GETPOST('request_key', 'alphanohtml') : bin2hex(random_bytes(16));
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         switch (GETPOST('action', 'aZ09')) {
@@ -36,10 +36,12 @@ if ($user->hasRight('training', 'enrollment', 'write') && $session->status === '
     print '<form method="get"><input type="hidden" name="id" value="'.$id.'"><label>'.trainingEscape($langs->trans('TrainingFindContact')).' <input name="contact_search" value="'.trainingEscape($search).'"></label> <button class="button">'.trainingEscape($langs->trans('Search')).'</button></form>';
     try {
         $contacts = $enrollments->contactChoices($search);
+        $selected = GETPOST('contact_ids', 'array');
+        if (!is_array($selected)) { $selected = array(); }
         trainingForm('reserve', $id, '/training/reservations.php');
         print '<input type="hidden" name="request_key" value="'.trainingEscape($key).'">';
         foreach ($contacts as $contact) {
-            print '<p><label><input type="checkbox" name="contact_ids[]" value="'.(int) $contact->id.'"> '.trainingEscape(trim($contact->firstname.' '.$contact->lastname)).'</label></p>';
+            print '<p><label><input type="checkbox" name="contact_ids[]" value="'.(int) $contact->id.'"'.(in_array((string) $contact->id, $selected, true) ? ' checked' : '').'> '.trainingEscape(trim($contact->firstname.' '.$contact->lastname)).'</label></p>';
         }
         print '<button class="button">'.trainingEscape($langs->trans('TrainingReserve15Minutes')).'</button></form>';
     } catch (Throwable $e) { print '<div class="error">'.trainingError($e).'</div>'; }

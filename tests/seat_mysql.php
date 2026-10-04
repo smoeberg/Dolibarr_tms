@@ -7,6 +7,11 @@ function seatSession(string $ref, int $capacity): int {
     $id=$seatSchedule->create($first,$ref,$ref,$capacity,'Europe/Copenhagen');
     $seatSchedule->replaceSlots($id,$seatSlots); $seatSchedule->changeStatus($id,'open'); return $id;
 }
+function seatReject(callable $fn, string $reason): void {
+    try { $fn(); }
+    catch (RuntimeException|InvalidArgumentException $e) { verify($e->getMessage()===$reason,$reason); return; }
+    throw new RuntimeException('Expected rejection '.$reason);
+}
 function seatKey(string $value): string { return hash('sha256',$value); }
 function expireSeat(int $id): void {
     global $db; $db->query('UPDATE tst_training_seat_hold SET expires_utc=UTC_TIMESTAMP() WHERE rowid='.$id);
@@ -19,24 +24,24 @@ $before=$db->count('training_audit');
 $expiry=$seatBooking->reservations($id)[0]->expires_utc;
 verify($seatBooking->reserve($id,array(21,22),seatKey('basics'))===$hold,'same normalized reservation key returns original ID');
 verify($seatBooking->reservations($id)[0]->expires_utc===$expiry && $db->count('training_audit')===$before,'retry does not extend expiry or add audit');
-bookingReject(fn()=>$seatBooking->reserve($id,array(23),seatKey('basics')),'TrainingReservationKeyConflict');
-bookingReject(fn()=>$seatBooking->reserve($id,array(21,22),seatKey('basics'),20),'TrainingReservationKeyConflict');
-bookingReject(fn()=>$seatBooking->reserve($id,array(21,21),seatKey('duplicate')),'TrainingInvalidReservation');
-bookingReject(fn()=>$seatBooking->reserve($id,array('23'),seatKey('string')),'TrainingInvalidReservation');
-bookingReject(fn()=>$seatBooking->reserve($id,array(23),'unsafe-key'),'TrainingInvalidReservation');
-bookingReject(fn()=>$seatBooking->reserve($id,array(23),seatKey('ttl'),61),'TrainingInvalidReservation');
-bookingReject(fn()=>$seatBooking->reserve($id,array(21),seatKey('other')),'TrainingParticipantReserved');
-bookingReject(fn()=>$seatBooking->confirm($id,21),'TrainingParticipantReserved');
-bookingReject(fn()=>$seatBooking->reserve($id,array(23,24),seatKey('too-many')),'TrainingSessionFull');
-bookingReject(fn()=>$seatSchedule->changeCapacity($id,1),'TrainingCapacityBelowOccupancy');
+seatReject(fn()=>$seatBooking->reserve($id,array(23),seatKey('basics')),'TrainingReservationKeyConflict');
+seatReject(fn()=>$seatBooking->reserve($id,array(21,22),seatKey('basics'),20),'TrainingReservationKeyConflict');
+seatReject(fn()=>$seatBooking->reserve($id,array(21,21),seatKey('duplicate')),'TrainingInvalidReservation');
+seatReject(fn()=>$seatBooking->reserve($id,array('23'),seatKey('string')),'TrainingInvalidReservation');
+seatReject(fn()=>$seatBooking->reserve($id,array(23),'unsafe-key'),'TrainingInvalidReservation');
+seatReject(fn()=>$seatBooking->reserve($id,array(23),seatKey('ttl'),61),'TrainingInvalidReservation');
+seatReject(fn()=>$seatBooking->reserve($id,array(21),seatKey('other')),'TrainingParticipantReserved');
+seatReject(fn()=>$seatBooking->confirm($id,21),'TrainingParticipantReserved');
+seatReject(fn()=>$seatBooking->reserve($id,array(23,24),seatKey('too-many')),'TrainingSessionFull');
+seatReject(fn()=>$seatSchedule->changeCapacity($id,1),'TrainingCapacityBelowOccupancy');
 $seatBooking->confirm($id,23);
-bookingReject(fn()=>$seatBooking->reserve($id,array(23),seatKey('already')),'TrainingParticipantAlreadyBooked');
+seatReject(fn()=>$seatBooking->reserve($id,array(23),seatKey('already')),'TrainingParticipantAlreadyBooked');
 $ids=$seatBooking->confirmReservation($id,$hold,'Coordinator accepts group');
 $detail=$seatSchedule->detail($id);
 verify(count($ids)===2 && $detail['occupied']===3 && $detail['reserved']===0,'atomic group conversion replaces the hold without double counting');
 $before=$db->count('training_audit');
 verify($seatBooking->confirmReservation($id,$hold,'Repeated approval')===$ids && $db->count('training_audit')===$before,'conversion retry returns original enrollments without audit duplication');
-bookingReject(fn()=>$seatBooking->releaseReservation($id,$hold,'Invalid release'),'TrainingInvalidTransition');
+seatReject(fn()=>$seatBooking->releaseReservation($id,$hold,'Invalid release'),'TrainingInvalidTransition');
 $seatBooking->cancel($id,$ids[0],'Cancel one member');
 verify($seatBooking->confirmReservation($id,$hold,'Retry after cancellation')===$ids && $seatSchedule->detail($id)['occupied']===2,'old conversion retry never resurrects cancelled enrollment');
 $replacement=$seatBooking->reserve($id,array(21),seatKey('rebook'));
@@ -48,7 +53,7 @@ expireSeat($hold);
 verify($seatSchedule->detail($id)['reserved']===0 && $seatBooking->reservations($id)[0]->effective_status==='expired','expiry at decision time frees capacity without a job');
 verify($seatBooking->reserve($id,array(21),seatKey('expires'))===$hold && $seatSchedule->detail($id)['reserved']===0,'expired request retry cannot revive hold');
 $seatBooking->confirm($id,22);
-bookingReject(fn()=>$seatBooking->confirmReservation($id,$hold,'Late approval'),'TrainingSessionFull');
+seatReject(fn()=>$seatBooking->confirmReservation($id,$hold,'Late approval'),'TrainingSessionFull');
 verify(count($seatBooking->listForSession($id))===1,'late approval failure leaves no partial enrollment');
 $otherId=(int) $seatBooking->listForSession($id)[0]->rowid;
 $seatBooking->cancel($id,$otherId,'Free seat');
@@ -59,41 +64,41 @@ verify(json_decode($event->metadata_json,true)['after_expiry']===true,'audit dis
 
 $id=seatSession('SEAT-RELEASE',2);
 $hold=$seatBooking->reserve($id,array(21),seatKey('release'));
-bookingReject(fn()=>$seatBooking->releaseReservation($id,$hold,''),'TrainingReservationReasonRequired');
+seatReject(fn()=>$seatBooking->releaseReservation($id,$hold,''),'TrainingReservationReasonRequired');
 $seatSchedule->changeStatus($id,'closed');
-bookingReject(fn()=>$seatBooking->confirmReservation($id,$hold,'Closed approval'),'TrainingSessionNotOpen');
+seatReject(fn()=>$seatBooking->confirmReservation($id,$hold,'Closed approval'),'TrainingSessionNotOpen');
 $seatBooking->releaseReservation($id,$hold,'Closed session release');
 $before=$db->count('training_audit'); $seatBooking->releaseReservation($id,$hold,'Retry');
 verify($seatSchedule->detail($id)['reserved']===0 && $db->count('training_audit')===$before,'release on closed session is idempotent');
-bookingReject(fn()=>$seatBooking->confirmReservation($id,$hold,'Released approval'),'TrainingInvalidTransition');
+seatReject(fn()=>$seatBooking->confirmReservation($id,$hold,'Released approval'),'TrainingInvalidTransition');
 verify($seatBooking->reserve($id,array(21),seatKey('release'))===$hold,'release retry returns terminal reservation without revival');
 
 $id=seatSession('SEAT-ACCESS',3);
-bookingReject(fn()=>$seatBooking->reserve($id,array(30),seatKey('inactive')),'TrainingContactInactive');
-bookingReject(fn()=>$seatBooking->reserve($id,array(31),seatKey('foreign')),'TrainingContactNotAccessible');
+seatReject(fn()=>$seatBooking->reserve($id,array(30),seatKey('inactive')),'TrainingContactInactive');
+seatReject(fn()=>$seatBooking->reserve($id,array(31),seatKey('foreign')),'TrainingContactNotAccessible');
 $readonly=new TrainingEnrollmentService(bookingStore($db,2,new ReadOnlyEnrollmentUser()));
-bookingReject(fn()=>$readonly->reserve($id,array(21),seatKey('readonly')),'TrainingAccessDenied');
+seatReject(fn()=>$readonly->reserve($id,array(21),seatKey('readonly')),'TrainingAccessDenied');
 $hold=$seatBooking->reserve($id,array(21,22),seatKey('access'));
-bookingReject(fn()=>$readonly->confirmReservation($id,$hold,'Unauthorized'),'TrainingAccessDenied');
-bookingReject(fn()=>$readonly->releaseReservation($id,$hold,'Unauthorized'),'TrainingAccessDenied');
+seatReject(fn()=>$readonly->confirmReservation($id,$hold,'Unauthorized'),'TrainingAccessDenied');
+seatReject(fn()=>$readonly->releaseReservation($id,$hold,'Unauthorized'),'TrainingAccessDenied');
 $foreign=new TrainingEnrollmentService(bookingStore($db,1));
-bookingReject(fn()=>$foreign->confirmReservation($id,$hold,'Foreign'),'TrainingSessionNotFound');
+seatReject(fn()=>$foreign->confirmReservation($id,$hold,'Foreign'),'TrainingSessionNotFound');
 $other=seatSession('SEAT-WRONG-HOLD',3);
-bookingReject(fn()=>$seatBooking->confirmReservation($other,$hold,'Wrong session'),'TrainingReservationNotFound');
+seatReject(fn()=>$seatBooking->confirmReservation($other,$hold,'Wrong session'),'TrainingReservationNotFound');
 $db->query('UPDATE tst_socpeople SET statut=0 WHERE rowid=22');
-bookingReject(fn()=>$seatBooking->confirmReservation($id,$hold,'Inactive member'),'TrainingContactInactive');
+seatReject(fn()=>$seatBooking->confirmReservation($id,$hold,'Inactive member'),'TrainingContactInactive');
 verify($seatSchedule->detail($id)['occupied']===0 && $seatSchedule->detail($id)['reserved']===2,'inactive member rejects the whole group');
 $db->query('UPDATE tst_socpeople SET statut=1 WHERE rowid=22');
 $db->failAudit=true;
-bookingReject(fn()=>$seatBooking->confirmReservation($id,$hold,'Fail audit'),'TrainingDatabaseError');
+seatReject(fn()=>$seatBooking->confirmReservation($id,$hold,'Fail audit'),'TrainingDatabaseError');
 $db->failAudit=false;
 verify($seatSchedule->detail($id)['occupied']===0 && $seatSchedule->detail($id)['reserved']===2,'conversion and all learner/enrollment writes roll back on failed audit');
 $db->failAudit=true;
-bookingReject(fn()=>$seatBooking->releaseReservation($id,$hold,'Fail release audit'),'TrainingDatabaseError');
+seatReject(fn()=>$seatBooking->releaseReservation($id,$hold,'Fail release audit'),'TrainingDatabaseError');
 $db->failAudit=false;
 verify($seatSchedule->detail($id)['reserved']===2,'release audit failure preserves reservation');
 $before=$db->count('training_seat_hold'); $db->failAudit=true;
-bookingReject(fn()=>$seatBooking->reserve($id,array(23),seatKey('fail-reserve')),'TrainingDatabaseError');
+seatReject(fn()=>$seatBooking->reserve($id,array(23),seatKey('fail-reserve')),'TrainingDatabaseError');
 $db->failAudit=false;
 verify($db->count('training_seat_hold')===$before && $seatSchedule->detail($id)['reserved']===2,'reserve audit failure rolls back hold and member rows');
 

@@ -2,7 +2,7 @@
 
 Et nyt kursusadministrationsmodul til Dolibarr med online tilmelding gennem Dolibarr Website.
 
-**Status:** Intern kerne 0.6.0: kursusprofiler, programversioner, hold, undervisningsblokke, administrativ tilmelding, kapacitetsstyring basis-fremmøde allokering af standardfakturalinjer og hold-specifik underviseradgang og navngivne pladsreservationer. Online checkout er planlagt. Arkitektur og standard-/gapkortlægning er dokumenteret i version 2.5.
+**Status:** Intern kerne 0.6.0: kursusprofiler, programversioner, hold, undervisningsblokke, administrativ tilmelding, kapacitetsstyring basis-fremmøde allokering af standardfakturalinjer og hold-specifik underviseradgang og navngivne pladsreservationer. Online checkout er planlagt. Arkitektur og standard-/gapkortlægning er dokumenteret i version 2.6.
 
 **Målmiljø:** Dolibarr 24.0.2, PHP 8.4.26 og MySQL. CI bruger PHP 8.4 og MySQL 8.0; den konkrete MySQL-serverversion og fuld installation/UI på målserveren mangler fortsat at blive verificeret.
 

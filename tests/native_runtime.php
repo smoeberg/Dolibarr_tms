@@ -72,5 +72,11 @@ nativeCheck(empty($result['errors']),'Native reactivation');
 $conf->setValues($db); $user->getrights();
 foreach ($tables as $table) { nativeCheck(nativeCount($table)===$counts[$table],'Reactivation retains '.$table); }
 nativeCheck((int) $attendance->sheet($session,$slot)['rows'][0]->present_minutes === 60,'Attendance retained after reactivation');
-file_put_contents(__DIR__.'/../.ci/native-fixture.json',json_encode(array('product'=>$productId,'session'=>$session,'slot'=>$slot)));
+$otherContact=new Contact($db); $otherContact->firstname='Native'; $otherContact->lastname='Second participant'; $otherContact->statut=1;
+$otherContactId=$otherContact->create($user);
+nativeCheck($otherContactId>0,'Second native contact for HTTP reservation form');
+$httpSession=$scheduling->create($version,'HTTP-SEAT-CI','HTTP reservation form',2,'Europe/Copenhagen');
+$scheduling->replaceSlots($httpSession,array(array('start'=>'2026-10-20T09:00:00+02:00','end'=>'2026-10-20T10:00:00+02:00')));
+$scheduling->changeStatus($httpSession,'open');
+file_put_contents(__DIR__.'/../.ci/native-fixture.json',json_encode(array('product'=>$productId,'session'=>$session,'slot'=>$slot,'reservation_session'=>$httpSession,'contact'=>$contactId,'other_contact'=>$otherContactId)));
 echo 'Native Dolibarr installation and lifecycle checks passed.'.PHP_EOL;
