@@ -106,6 +106,7 @@ final class TrainingAccess
     {
         if (!$this->user->hasRight('societe', 'contact', 'lire')) { throw new RuntimeException('TrainingContactNotAccessible'); }
     }
+    public function productEntityScope(): string { return implode(',', $this->productEntities); }
     public function contactEntityScope(): string { return implode(',', $this->contactEntities); }
 
     public function requireService($product): void

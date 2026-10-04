@@ -81,3 +81,5 @@ require_once __DIR__.'/attendance_picker_mysql.php';
 require_once __DIR__.'/trainer_mysql.php';
 
 require_once __DIR__.'/seat_mysql.php';
+
+require_once __DIR__.'/report_mysql.php';

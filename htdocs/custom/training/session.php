@@ -32,6 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 try { $detail = $scheduling->detail($id); } catch (Throwable $e) { accessforbidden(); }
 $session = $detail['session'];
 llxHeader('', $langs->trans('TrainingSession'));
+if ($user->hasRight('training','enrollment','read')) { print '<p><a href="'.dol_buildpath('/training/overview.php',1).'">'.trainingEscape($langs->trans('TrainingOverview')).'</a></p>'; }
 print '<a href="'.dol_buildpath('/training/sessions.php', 1).'?product_id='.$session->fk_product.'">'.$langs->trans('TrainingSessions').'</a>';
 print '<h2>'.trainingEscape($session->ref).' — '.trainingEscape($session->label).'</h2>';
 if ($error) { print '<div class="error">'.$error.'</div>'; }

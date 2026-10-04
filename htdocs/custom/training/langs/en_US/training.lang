@@ -187,3 +187,25 @@ TrainingParticipantReserved=A participant already has an active reservation in t
 TrainingParticipantAlreadyBooked=A participant is already confirmed in this session.
 TrainingReservationReasonRequired=Provide a reason for approving or releasing the reservation.
 TrainingReservationIntegrityError=Reservation participants are inconsistent; contact the coordinator.
+
+# Overview 0.7.0
+TrainingOverview=Sessions and capacity
+TrainingOverviewHelp=Filter by the first teaching start, inclusive local dates and timezone. Workflow and time status are separate. Totals cover all matching sessions; rows are paginated. Unused capacity does not mean registration is open.
+TrainingTimeStatus=Time status
+TrainingTimeUpcoming=Upcoming
+TrainingTimeOngoing=In progress (first–last block)
+TrainingTimeFinished=Finished
+TrainingTimeUnscheduled=No teaching blocks
+TrainingReportFrom=First start from
+TrainingReportTo=First start through
+TrainingReportAsOf=Calculated at
+TrainingReportMetric=Metric
+TrainingConfirmedSeats=Confirmed seats
+TrainingReservedSeats=Reserved seats
+TrainingUnusedCapacity=Unused capacity
+TrainingWeightedOccupancy=Weighted occupancy (confirmed + reserved)
+TrainingReportFirstStart=First start (filter timezone)
+TrainingReportPage=Page %s of %s
+TrainingInvalidReportFilter=Check date range, timezone, status and page.
+TrainingReportTooBroad=More than 5,000 sessions match. Narrow the date range or search.
+TrainingReportInvariantError=A session has invalid capacity or more occupied seats than capacity. Contact the coordinator.

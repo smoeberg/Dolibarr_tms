@@ -165,3 +165,20 @@ check($picker === $partial, 'local picker and explicit-offset API normalize to i
 rejects(fn() => TrainingAttendanceRecord::normalize(array('status'=>'present','arrival'=>'2026-10-20T09:00:00+02:00','arrival_local'=>'2026-10-20T09:00'), $attendanceSlot,'Europe/Copenhagen'), 'TrainingInvalidAttendanceTimes');
 check(TrainingAttendanceRecord::normalize(array('status'=>'present','arrival_local'=>'','departure_local'=>'','arrival_offset'=>'+02:00'),$attendanceSlot,'Europe/Copenhagen') === $full, 'cleared times keep full-slot attestation without invented timestamps');
 echo 'All attendance picker timezone tests passed.'.PHP_EOL;
+
+require_once __DIR__.'/../htdocs/custom/training/class/trainingreportfilter.class.php';
+$fall=new TrainingReportFilter(array('from'=>'2026-10-25','to'=>'2026-10-25','timezone'=>'Europe/Copenhagen'));
+check(strtotime($fall->untilUtc.' UTC')-strtotime($fall->fromUtc.' UTC')===25*3600,'report inclusive local autumn day spans 25 UTC hours');
+$spring=new TrainingReportFilter(array('from'=>'2026-03-29','to'=>'2026-03-29','timezone'=>'Europe/Copenhagen'));
+check(strtotime($spring->untilUtc.' UTC')-strtotime($spring->fromUtc.' UTC')===23*3600,'report inclusive local spring day spans 23 UTC hours');
+foreach (array(array('from'=>'2026-02-30'),array('from'=>'2026-10-21','to'=>'2026-10-20'),array('timezone'=>'invalid'),array('status'=>'paid'),array('time'=>'open'),array('search'=>array('bad'))) as $input) {
+    try { new TrainingReportFilter($input); throw new LogicException('Invalid report filter accepted'); }
+    catch (InvalidArgumentException $e) { check($e->getMessage()==='TrainingInvalidReportFilter','invalid report filter rejected'); }
+}
+
+$midnightGap=new TrainingReportFilter(array('from'=>'2018-11-04','to'=>'2018-11-04','timezone'=>'America/Sao_Paulo'));
+check($midnightGap->fromUtc==='2018-11-04 03:00:00' && $midnightGap->untilUtc==='2018-11-05 02:00:00','report midnight DST gap ends at next local midnight, not normalized 01:00');
+$skippedNextDay=new TrainingReportFilter(array('from'=>'2011-12-29','to'=>'2011-12-29','timezone'=>'Pacific/Apia'));
+check(strtotime($skippedNextDay->untilUtc.' UTC')-strtotime($skippedNextDay->fromUtc.' UTC')===24*3600,'exclusive report boundary can normalize an entirely skipped next local date');
+try { new TrainingReportFilter(array('from'=>'2011-12-30','timezone'=>'Pacific/Apia')); throw new LogicException('Skipped input date accepted'); }
+catch (InvalidArgumentException $e) { check($e->getMessage()==='TrainingInvalidReportFilter','entirely skipped local input date rejected'); }

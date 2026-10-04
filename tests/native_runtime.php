@@ -9,6 +9,7 @@ require_once DOL_DOCUMENT_ROOT.'/custom/training/lib/ui.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/custom/training/class/trainingcatalogservice.class.php';
 require_once DOL_DOCUMENT_ROOT.'/custom/training/class/trainingattendanceservice.class.php';
 require_once DOL_DOCUMENT_ROOT.'/custom/training/class/trainingtrainerservice.class.php';
+require_once DOL_DOCUMENT_ROOT.'/custom/training/class/trainingreportingservice.class.php';
 function nativeCheck($ok, string $message): void {
     if (!$ok) { throw new RuntimeException($message); }
     echo 'OK: '.$message.PHP_EOL;
@@ -32,7 +33,7 @@ nativeCheck(nativeCount('training_course_profile') === 0, 'Clean Training schema
 $r=$db->query("SELECT COUNT(*) AS n FROM ".$db->prefix()."rights_def WHERE module='training'");
 nativeCheck((int) $db->fetch_object($r)->n === 18, 'All 18 native permission definitions');
 $r=$db->query("SELECT COUNT(*) AS n FROM ".$db->prefix()."menu WHERE module='training'");
-nativeCheck((int) $db->fetch_object($r)->n === 1, 'Native trainer menu registered once');
+nativeCheck((int) $db->fetch_object($r)->n === 2, 'Native Training menus registered once');
 $product=new Product($db);
 $product->ref='TRAINING-CI'; $product->label='Kursus æøå'; $product->description='Standard Dolibarr service';
 $product->type=1; $product->status=1; $product->status_buy=0; $product->price=100; $product->price_base_type='HT'; $product->tva_tx=25;
@@ -61,6 +62,8 @@ $attendance=new TrainingAttendanceService($store);
 nativeCheck(count($attendance->mySessions()) === 1,'Native internal user assignment and own-session listing');
 $attendance->record($session,$slot,$enrollment,0,array('status'=>'present'));
 nativeCheck((int) $attendance->sheet($session,$slot)['rows'][0]->present_minutes === 60,'Native loaders, booking and attendance round trip');
+$report=(new TrainingReportingService($store))->sessions(new TrainingReportFilter(array('search'=>'NATIVE-CI')));
+nativeCheck($report['totals']['sessions']===1 && $report['totals']['confirmed']===1 && $report['totals']['reserved']===0,'Native reporting totals match session detail');
 $tables=array('training_seat_hold','training_seat_member','training_course_profile','training_course_version','training_audit','training_session','training_session_slot','training_learner','training_enrollment','training_attendance','training_billing_line','training_billing_allocation','training_trainer','training_trainer_assignment');
 $counts=array(); foreach ($tables as $table) { $counts[$table]=nativeCount($table); }
 nativeCheck(unActivateModule('modTraining',0) === '', 'Native deactivation');

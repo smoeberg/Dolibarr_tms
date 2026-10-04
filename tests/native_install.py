@@ -34,7 +34,7 @@ def php_string(value):
     f'${name} = {php_string(value)};\n' for name, value in config.items()
 ))
 # Extract the shipped archive, never copy the source module over it.
-with zipfile.ZipFile(repo / 'dist/module_training-0.6.0.zip') as package:
+with zipfile.ZipFile(repo / 'dist/module_training-0.7.0.zip') as package:
     package.extractall(root / 'custom')
 for args in [['step2.php', 'set', 'en_US'],
              ['step5.php', '0.0.0', '24.0.2', 'en_US', 'set',

@@ -187,3 +187,25 @@ TrainingParticipantReserved=En deltager har allerede en aktiv reservation på ho
 TrainingParticipantAlreadyBooked=En deltager er allerede bekræftet på holdet.
 TrainingReservationReasonRequired=Angiv begrundelse for godkendelse eller frigivelse.
 TrainingReservationIntegrityError=Reservationens deltagere stemmer ikke; kontakt koordinatoren.
+
+# Overview 0.7.0
+TrainingOverview=Hold og kapacitet
+TrainingOverviewHelp=Filtrér på første undervisningsstart, inklusive lokale datoer og tidszone. Workflow og tidsstatus er adskilt. Totaler omfatter alle matchende hold; listen er sideinddelt. Ubrugt kapacitet betyder ikke, at tilmelding er åben.
+TrainingTimeStatus=Tidsstatus
+TrainingTimeUpcoming=Kommende
+TrainingTimeOngoing=I gang (første–sidste blok)
+TrainingTimeFinished=Afsluttet
+TrainingTimeUnscheduled=Ingen undervisningsblokke
+TrainingReportFrom=Første start fra
+TrainingReportTo=Første start til og med
+TrainingReportAsOf=Opgjort
+TrainingReportMetric=Måling
+TrainingConfirmedSeats=Bekræftede pladser
+TrainingReservedSeats=Reserverede pladser
+TrainingUnusedCapacity=Ubrugt kapacitet
+TrainingWeightedOccupancy=Vægtet belægning (bekræftet + reserveret)
+TrainingReportFirstStart=Første start (filterets tidszone)
+TrainingReportPage=Side %s af %s
+TrainingInvalidReportFilter=Kontrollér datointerval, tidszone, status og side.
+TrainingReportTooBroad=Mere end 5.000 hold matcher. Begræns perioden eller søgningen.
+TrainingReportInvariantError=Et hold har ugyldig kapacitet eller flere optagede pladser end kapacitet. Kontakt koordinatoren.
