@@ -265,6 +265,39 @@ TrainingOrderBefore=Før
 TrainingOrderAfter=Efter
 TrainingOrderHistory=Historik
 
+# Kreditnota-håndtering
+TrainingCreditNote=Kreditnota
+TrainingReadCreditNote=Læs kreditnota-allokeringer
+TrainingWriteCreditNote=Alloker kreditnotaer
+TrainingCorrectCreditNote=Ret kreditnota-allokering
+TrainingCreditNoteId=Kreditnota-ID
+TrainingCreditNoteLineId=Kreditnota-linje-ID
+TrainingCreditNoteSaved=Kreditnota-allokering gemt.
+TrainingCreditNoteHelp=Alloker kreditnotaer til tilmeldinger. Kreditnotaer reducerer den frosne pris balance.
+TrainingAllocateCreditNote=Alloker kreditnota
+TrainingCreditNoteNoAllocations=Vælg mindst én tilmelding at allokere kreditnota til.
+TrainingCreditNoteAmountHelp=Indtast beløb at allokere (op til 8 decimaler)
+TrainingCreditNoteNotEligible=Kun validerede kreditnotaer kan allokeres.
+TrainingCreditNoteCurrencyMismatch=Kreditnota-valuta passer ikke med tilmeldingens prisvaluta.
+TrainingCreditNoteInvalidAmount=Ugyldigt beløb. Brug format: 123,45 eller 123
+TrainingCreditNoteExceedsFrozenPrice=Allokeringsbeløb overstiger frosset pris.
+TrainingCreditNoteExceedsRemainingBalance=Allokeringsbeløb overstiger resterende saldo efter eksisterende kreditnotaer.
+TrainingCreditNoteExceedsCreditNoteAmount=Total allokering overstiger kreditnota-beløb.
+TrainingCreditNoteConfirmedRequired=Kreditnota kan kun allokeres til bekræftede tilmeldinger.
+TrainingCreditNoteReasonRequired=En begrundelse er påkrævet (maksimum 2000 tegn).
+TrainingCreditNoteAllocationNotFound=Kreditnota-allokering ikke fundet.
+TrainingCreditNoteNotAccessible=Kreditnota ikke tilgængelig.
+TrainingCreditNoteTypeMismatch=Dokumentet er ikke en kreditnota (type skal være 2).
+TrainingCreditNoteSummary=Kreditnota-oversigt
+TrainingTotalCreditNotes=Totale kreditnotaer
+TrainingCreditNotes=Kreditnotaer
+TrainingCreditNoteRef=Kreditnota-reference
+TrainingCreditNoteAllocations=Kreditnota-allokeringer
+TrainingNoCreditNoteAllocations=Ingen kreditnota-allokeringer for dette hold.
+TrainingActive=Aktiv
+TrainingVoided=Annulleret
+TrainingCreditNoteExceedsBalance=Kreditnota-beløb overstiger resterende saldo.
+
 # Betalingsallokering
 TrainingPayment=Betalingsallokering
 TrainingReadPayment=Læs betalingsallokeringer

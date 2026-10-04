@@ -69,6 +69,7 @@ final class TrainingPaymentService
     /**
      * Get remaining balance for an enrollment.
      * Returns the difference between frozen price and allocated payments.
+     * Note: This does NOT account for credit note deductions. Use getEnrollmentBalanceWithCreditNotes() for that.
      */
     public function getEnrollmentBalance(int $sessionId, int $enrollmentId): array {
         $this->allow('read');
@@ -115,6 +116,44 @@ final class TrainingPaymentService
     }
 
     /**
+     * Get remaining balance for an enrollment including credit note deductions.
+     * Returns frozen price minus allocated payments minus credit note deductions.
+     */
+    public function getEnrollmentBalanceWithCreditNotes(int $sessionId, int $enrollmentId): array {
+        $this->allow('read');
+        
+        $balance = $this->getEnrollmentBalance($sessionId, $enrollmentId);
+        
+        if ($balance['frozen_price'] === null || $balance['currency'] === null) {
+            $balance['total_credit_notes'] = '0.00';
+            $balance['remaining_after_credits'] = null;
+            $balance['is_paid_after_credits'] = false;
+            return $balance;
+        }
+        
+        // Get credit note allocations for this enrollment
+        $creditNoteAllocs = $this->s->rows(
+            'SELECT ca.amount, ca.currency FROM '.$this->s->table('creditnote_allocation').' ca '.
+            'WHERE ca.entity='.$this->s->access->entity().
+            ' AND ca.fk_enrollment='.$enrollmentId.
+            ' AND ca.status=\'active\''
+        );
+        
+        $totalCreditNotes = '0.00';
+        foreach ($creditNoteAllocs as $cn) {
+            if ($cn->currency === $balance['currency']) {
+                $totalCreditNotes = bcadd($totalCreditNotes, $cn->amount, 8);
+            }
+        }
+        
+        $balance['total_credit_notes'] = $totalCreditNotes;
+        $balance['remaining_after_credits'] = bcsub($balance['frozen_price'], bcadd($balance['allocated_total'], $totalCreditNotes, 8), 8);
+        $balance['is_paid_after_credits'] = bccomp($balance['remaining_after_credits'], '0', 8) <= 0;
+        
+        return $balance;
+    }
+
+    /**
      * Get payment allocation summary for a session.
      */
     public function sessionPaymentSummary(int $sessionId): array {
@@ -132,7 +171,9 @@ final class TrainingPaymentService
             'total_enrollments' => count($enrollments),
             'total_frozen_amount' => '0.00',
             'total_allocated' => '0.00',
+            'total_credit_notes' => '0.00',
             'total_remaining' => '0.00',
+            'total_remaining_after_credits' => '0.00',
             'fully_paid' => 0,
             'partially_paid' => 0,
             'unpaid' => 0,
@@ -144,7 +185,7 @@ final class TrainingPaymentService
         }
         
         foreach ($enrollments as $enrollment) {
-            $balance = $this->getEnrollmentBalance($sessionId, (int) $enrollment->rowid);
+            $balance = $this->getEnrollmentBalanceWithCreditNotes($sessionId, (int) $enrollment->rowid);
             
             if ($balance['currency'] && $summary['currency'] === null) {
                 $summary['currency'] = $balance['currency'];
@@ -153,11 +194,13 @@ final class TrainingPaymentService
             if ($balance['frozen_price'] !== null) {
                 $summary['total_frozen_amount'] = bcadd($summary['total_frozen_amount'], $balance['frozen_price'], 8);
                 $summary['total_allocated'] = bcadd($summary['total_allocated'], $balance['allocated_total'], 8);
+                $summary['total_credit_notes'] = bcadd($summary['total_credit_notes'], $balance['total_credit_notes'], 8);
                 $summary['total_remaining'] = bcadd($summary['total_remaining'], $balance['remaining'] ?? '0.00', 8);
+                $summary['total_remaining_after_credits'] = bcadd($summary['total_remaining_after_credits'], $balance['remaining_after_credits'] ?? '0.00', 8);
                 
-                if ($balance['is_paid']) {
+                if ($balance['is_paid_after_credits']) {
                     $summary['fully_paid']++;
-                } elseif ($balance['remaining'] !== null && bccomp($balance['remaining'], '0', 8) > 0) {
+                } elseif ($balance['remaining_after_credits'] !== null && bccomp($balance['remaining_after_credits'], '0', 8) > 0) {
                     $summary['partially_paid']++;
                 } else {
                     $summary['unpaid']++;
@@ -168,6 +211,25 @@ final class TrainingPaymentService
         }
         
         return $summary;
+    }
+
+    /**
+     * Get credit note allocations for a session (proxy to CreditNoteService).
+     */
+    public function sessionCreditNoteAllocations(int $sessionId): array {
+        $this->allow('read');
+        $this->s->session($sessionId);
+        
+        return $this->s->rows(
+            'SELECT ca.rowid, ca.fk_facture, ca.fk_facturedet, ca.fk_enrollment, ca.amount, ca.currency, ca.datec, '
+            'cs.invoice_ref, cs.date_credit, ca.status, ca.revision '
+            'FROM '.$this->s->table('creditnote_allocation').' ca '.
+            'LEFT JOIN '.$this->s->table('creditnote_snapshot').' cs ON cs.fk_allocation = ca.rowid AND cs.entity = ca.entity '.
+            'JOIN '.$this->s->table('enrollment').' e ON e.rowid = ca.fk_enrollment AND e.entity = ca.entity '.
+            'WHERE ca.entity='.$this->s->access->entity().
+            ' AND e.fk_session='.$sessionId.
+            ' ORDER BY ca.datec, ca.rowid'
+        );
     }
 
     /**

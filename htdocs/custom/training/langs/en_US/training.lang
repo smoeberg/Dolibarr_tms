@@ -265,6 +265,39 @@ TrainingCommercialReasonRequired=Provide a change reason (maximum 2000 bytes).
 TrainingCommercialConfirmedRequired=Only confirmed enrollments can change commercial roles.
 TrainingCommercialConflict=Another user changed these roles. The current revision is displayed; review it before saving again.
 
+# Credit note handling
+TrainingCreditNote=Credit note
+TrainingReadCreditNote=Read credit note allocations
+TrainingWriteCreditNote=Allocate credit notes
+TrainingCorrectCreditNote=Correct credit note allocations
+TrainingCreditNoteId=Credit note ID
+TrainingCreditNoteLineId=Credit note line ID
+TrainingCreditNoteSaved=Credit note allocation saved.
+TrainingCreditNoteHelp=Allocate credit notes to enrollments. Credit notes reduce the frozen price balance.
+TrainingAllocateCreditNote=Allocate credit note
+TrainingCreditNoteNoAllocations=Select at least one enrollment to allocate credit note to.
+TrainingCreditNoteAmountHelp=Enter amount to allocate (up to 8 decimal places)
+TrainingCreditNoteNotEligible=Only validated credit notes can be allocated.
+TrainingCreditNoteCurrencyMismatch=Credit note currency does not match enrollment price currency.
+TrainingCreditNoteInvalidAmount=Invalid amount. Use format: 123.45 or 123
+TrainingCreditNoteExceedsFrozenPrice=Allocation amount exceeds frozen price.
+TrainingCreditNoteExceedsRemainingBalance=Allocation amount exceeds remaining balance after existing credit notes.
+TrainingCreditNoteExceedsCreditNoteAmount=Total allocation exceeds credit note amount.
+TrainingCreditNoteConfirmedRequired=Credit note can only be allocated to confirmed enrollments.
+TrainingCreditNoteReasonRequired=A reason is required (maximum 2000 bytes).
+TrainingCreditNoteAllocationNotFound=Credit note allocation not found.
+TrainingCreditNoteNotAccessible=Credit note not accessible.
+TrainingCreditNoteTypeMismatch=Document is not a credit note (type must be 2).
+TrainingCreditNoteSummary=Credit note summary
+TrainingTotalCreditNotes=Total credit notes
+TrainingCreditNotes=Credit notes
+TrainingCreditNoteRef=Credit note reference
+TrainingCreditNoteAllocations=Credit note allocations
+TrainingNoCreditNoteAllocations=No credit note allocations for this session.
+TrainingActive=Active
+TrainingVoided=Voided
+TrainingCreditNoteExceedsBalance=Credit note amount exceeds remaining balance.
+
 # Payment allocation
 TrainingPayment=Payment allocation
 TrainingReadPayment=Read payment allocations

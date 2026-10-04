@@ -1,14 +1,27 @@
 <?php
 require_once __DIR__.'/lib/ui.lib.php';
 require_once __DIR__.'/class/trainingpaymentservice.class.php';
+require_once __DIR__.'/class/trainingcreditnoteservice.class.php';
 $access = trainingAccess(); $store = new TrainingStore($db, $access);
 $payment = new TrainingPaymentService($store);
+$creditNote = null;
+if (class_exists('TrainingCreditNoteService')) {
+    try {
+        $creditNote = new TrainingCreditNoteService($store, 'DKK');
+    } catch (Throwable $e) {}
+}
 $id = GETPOSTINT('id');
 try { $session = $store->session($id); } catch (Throwable $e) { accessforbidden(); }
 $error = '';
 
 // Get session summary
 try { $summary = $payment->sessionPaymentSummary($id); } catch (Throwable $e) { $summary = null; }
+
+// Get credit note summary if available
+$creditNoteSummary = null;
+if ($creditNote) {
+    try { $creditNoteSummary = $creditNote->sessionCreditNoteSummary($id); } catch (Throwable $e) {}
+}
 
 // Get enrollments with balance
 $enrollments = array();
@@ -18,7 +31,7 @@ if ($user->hasRight('training', 'enrollment', 'read')) {
         $enrollmentRows = $enrollmentService->listForSession($id);
         foreach ($enrollmentRows as $row) {
             if ($row->status === 'confirmed') {
-                $balance = $payment->getEnrollmentBalance($id, (int) $row->rowid);
+                $balance = $payment->getEnrollmentBalanceWithCreditNotes($id, (int) $row->rowid);
                 $row->balance = $balance;
                 $enrollments[] = $row;
             }
@@ -71,8 +84,8 @@ if (GETPOSTINT('saved')) { print '<div class="ok">'.trainingEscape($langs->trans
 if ($summary) {
     print '<h3>'.trainingEscape($langs->trans('TrainingPaymentSummary')).'</h3>';
     print '<table class="liste centpercent">';
-    print '<tr class="liste_titre"><th>'.trainingEscape($langs->trans('TrainingTotalEnrollments')).'</th><th>'.trainingEscape($langs->trans('TrainingTotalFrozenAmount')).'</th><th>'.trainingEscape($langs->trans('TrainingTotalAllocated')).'</th><th>'.trainingEscape($langs->trans('TrainingTotalRemaining')).'</th></tr>';
-    print '<tr><td>'.$summary['total_enrollments'].'</td><td>'.trainingEscape($summary['total_frozen_amount']).' '.$summary['currency'].'</td><td>'.trainingEscape($summary['total_allocated']).' '.$summary['currency'].'</td><td>'.trainingEscape($summary['total_remaining']).' '.$summary['currency'].'</td></tr>';
+    print '<tr class="liste_titre"><th>'.trainingEscape($langs->trans('TrainingTotalEnrollments')).'</th><th>'.trainingEscape($langs->trans('TrainingTotalFrozenAmount')).'</th><th>'.trainingEscape($langs->trans('TrainingTotalAllocated')).'</th><th>'.trainingEscape($langs->trans('TrainingTotalCreditNotes')).'</th><th>'.trainingEscape($langs->trans('TrainingTotalRemaining')).'</th></tr>';
+    print '<tr><td>'.$summary['total_enrollments'].'</td><td>'.trainingEscape($summary['total_frozen_amount']).' '.$summary['currency'].'</td><td>'.trainingEscape($summary['total_allocated']).' '.$summary['currency'].'</td><td>'.trainingEscape($summary['total_credit_notes'] ?? '0.00').' '.$summary['currency'].'</td><td>'.trainingEscape($summary['total_remaining_after_credits'] ?? $summary['total_remaining']).' '.$summary['currency'].'</td></tr>';
     print '</table>';
     print '<p>'.trainingEscape($langs->trans('TrainingFullyPaid')).': '.$summary['fully_paid'].' | '.trainingEscape($langs->trans('TrainingPartiallyPaid')).': '.$summary['partially_paid'].' | '.trainingEscape($langs->trans('TrainingUnpaid')).': '.$summary['unpaid'].'</p>';
 }
@@ -81,18 +94,19 @@ if ($summary) {
 if ($user->hasRight('training', 'enrollment', 'read')) {
     print '<h3>'.trainingEscape($langs->trans('TrainingEnrollmentBalances')).'</h3>';
     print '<table class="liste centpercent">';
-    print '<tr class="liste_titre"><th>'.trainingEscape($langs->trans('TrainingParticipant')).'</th><th>'.trainingEscape($langs->trans('TrainingFrozenPrice')).'</th><th>'.trainingEscape($langs->trans('TrainingAllocated')).'</th><th>'.trainingEscape($langs->trans('TrainingRemaining')).'</th><th>'.trainingEscape($langs->trans('Status')).'</th></tr>';
+    print '<tr class="liste_titre"><th>'.trainingEscape($langs->trans('TrainingParticipant')).'</th><th>'.trainingEscape($langs->trans('TrainingFrozenPrice')).'</th><th>'.trainingEscape($langs->trans('TrainingAllocated')).'</th><th>'.trainingEscape($langs->trans('TrainingCreditNotes')).'</th><th>'.trainingEscape($langs->trans('TrainingRemaining')).'</th><th>'.trainingEscape($langs->trans('Status')).'</th></tr>';
     
     foreach ($enrollments as $enrollment) {
         $balance = $enrollment->balance;
         $name = $enrollment->contact ? trim($enrollment->contact->firstname.' '.$enrollment->contact->lastname) : $langs->trans('TrainingRestrictedContact');
-        $status = $balance['is_paid'] ? $langs->trans('TrainingPaid') : ($balance['is_overpaid'] ? $langs->trans('TrainingOverpaid') : ($balance['remaining'] !== null && bccomp($balance['remaining'], '0', 8) > 0 ? $langs->trans('TrainingPartiallyPaid') : $langs->trans('TrainingNotPaid')));
+        $status = $balance['is_paid_after_credits'] ? $langs->trans('TrainingPaid') : ($balance['is_overpaid'] ? $langs->trans('TrainingOverpaid') : (($balance['remaining_after_credits'] ?? $balance['remaining']) !== null && bccomp($balance['remaining_after_credits'] ?? $balance['remaining'], '0', 8) > 0 ? $langs->trans('TrainingPartiallyPaid') : $langs->trans('TrainingNotPaid')));
         
         print '<tr>';
         print '<td>'.trainingEscape($name).'</td>';
         print '<td>'.($balance['frozen_price'] !== null ? trainingEscape($balance['frozen_price']).' '.$balance['currency'] : '-').'</td>';
         print '<td>'.($balance['allocated_total'] !== null && $balance['allocated_total'] !== '0.00' ? trainingEscape($balance['allocated_total']).' '.$balance['currency'] : '-').'</td>';
-        print '<td>'.($balance['remaining'] !== null ? trainingEscape($balance['remaining']).' '.$balance['currency'] : '-').'</td>';
+        print '<td>'.(isset($balance['total_credit_notes']) && $balance['total_credit_notes'] !== null && $balance['total_credit_notes'] !== '0.00' ? trainingEscape($balance['total_credit_notes']).' '.$balance['currency'] : '-').'</td>';
+        print '<td>'.(($balance['remaining_after_credits'] ?? $balance['remaining']) !== null ? trainingEscape($balance['remaining_after_credits'] ?? $balance['remaining']).' '.$balance['currency'] : '-').'</td>';
         print '<td>'.trainingEscape($status).'</td>';
         print '</tr>';
     }
@@ -114,12 +128,12 @@ if ($user->hasRight('training', 'payment', 'write') && !empty($enrollments)) {
         foreach ($enrollments as $enrollment) {
             $balance = $enrollment->balance;
             $name = $enrollment->contact ? trim($enrollment->contact->firstname.' '.$enrollment->contact->lastname) : $langs->trans('TrainingRestrictedContact');
-            $maxAmount = $balance['remaining'] !== null ? $balance['remaining'] : ($balance['frozen_price'] !== null ? $balance['frozen_price'] : '');
+            $maxAmount = $balance['remaining_after_credits'] !== null ? $balance['remaining_after_credits'] : ($balance['remaining'] !== null ? $balance['remaining'] : ($balance['frozen_price'] !== null ? $balance['frozen_price'] : ''));
             
             print '<tr>';
             print '<td>'.trainingEscape($name).'</td>';
             print '<td>'.($balance['frozen_price'] !== null ? trainingEscape($balance['frozen_price']).' '.$balance['currency'] : '-').'</td>';
-            print '<td>'.($balance['remaining'] !== null ? trainingEscape($balance['remaining']).' '.$balance['currency'] : '-').'</td>';
+            print '<td>'.(($balance['remaining_after_credits'] ?? $balance['remaining']) !== null ? trainingEscape($balance['remaining_after_credits'] ?? $balance['remaining']).' '.$balance['currency'] : '-').'</td>';
             print '<td><input type="text" name="amount_'.(int) $enrollment->rowid.'" pattern="[0-9]+(\.[0-9]{1,8})?" placeholder="0.00" title="'.trainingEscape($langs->trans('TrainingPaymentAmountHelp')).'" value=""></td>';
             print '</tr>';
         }
@@ -173,6 +187,41 @@ if ($user->hasRight('training', 'payment', 'read')) {
             print '</table>';
         } else {
             print '<p>'.trainingEscape($langs->trans('TrainingNoAllocations')).'</p>';
+        }
+    } catch (Throwable $e) { print '<div class="error">'.trainingError($e).'</div>'; }
+}
+
+// Show credit note allocations if available
+if ($user->hasRight('training', 'creditnote', 'read') && $creditNote) {
+    print '<h3>'.trainingEscape($langs->trans('TrainingCreditNoteAllocations')).'</h3>';
+    try {
+        $creditNoteAllocs = $creditNote->sessionAllocations($id);
+        if (!empty($creditNoteAllocs)) {
+            print '<table class="liste centpercent">';
+            print '<tr class="liste_titre"><th>'.trainingEscape($langs->trans('Date')).'</th><th>'.trainingEscape($langs->trans('TrainingCreditNoteRef')).'</th><th>'.trainingEscape($langs->trans('TrainingParticipant')).'</th><th>'.trainingEscape($langs->trans('Amount')).'</th><th>'.trainingEscape($langs->trans('Status')).'</th></tr>';
+            
+            foreach ($creditNoteAllocs as $cn) {
+                $enrollmentRow = null;
+                foreach ($enrollments as $e) {
+                    if ((int) $e->rowid === (int) $cn->fk_enrollment) {
+                        $enrollmentRow = $e;
+                        break;
+                    }
+                }
+                $name = $enrollmentRow && $enrollmentRow->contact ? trim($enrollmentRow->contact->firstname.' '.$enrollmentRow->contact->lastname) : '#'.(int) $cn->fk_enrollment;
+                $cnStatus = $cn->status === 'active' ? $langs->trans('TrainingActive') : ($cn->status === 'voided' ? $langs->trans('TrainingVoided') : $cn->status);
+                
+                print '<tr>';
+                print '<td>'.trainingEscape(trainingLocal($cn->datec, $session->timezone)).'</td>';
+                print '<td><a href="'.dol_buildpath('/compta/facture/card.php', 1).'?id='.(int) $cn->fk_facture.'">'.trainingEscape($cn->invoice_ref).'</a></td>';
+                print '<td>'.trainingEscape($name).'</td>';
+                print '<td>'.trainingEscape($cn->amount).' '.$cn->currency.'</td>';
+                print '<td>'.trainingEscape($cnStatus).'</td>';
+                print '</tr>';
+            }
+            print '</table>';
+        } else {
+            print '<p>'.trainingEscape($langs->trans('TrainingNoCreditNoteAllocations')).'</p>';
         }
     } catch (Throwable $e) { print '<div class="error">'.trainingError($e).'</div>'; }
 }
