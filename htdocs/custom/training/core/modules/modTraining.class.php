@@ -14,7 +14,7 @@ class modTraining extends DolibarrModules
         $this->module_position = '90';
         $this->name = 'Training';
         $this->description = 'ModuleTrainingDesc';
-        $this->version = '0.7.0';
+        $this->version = '0.8.0';
         $this->const_name = 'MAIN_MODULE_TRAINING';
         $this->picto = 'service';
         $this->editor_name = 'Dolibarr TMS';
@@ -36,7 +36,7 @@ class modTraining extends DolibarrModules
             $r = count($this->rights);
             $this->rights[$r] = array(0 => $this->numero + $r + 1, 1 => $label, 3 => 0, 4 => 'course', 5 => $key);
         }
-        foreach (array('session' => array('read' => 'TrainingReadSessions', 'write' => 'TrainingWriteSessions'), 'enrollment' => array('read' => 'TrainingReadEnrollments', 'write' => 'TrainingWriteEnrollments'), 'attendance' => array('read' => 'TrainingReadAttendance', 'write' => 'TrainingWriteAttendance', 'correct' => 'TrainingCorrectAttendance'), 'billing' => array('read' => 'TrainingReadBilling', 'write' => 'TrainingWriteBilling', 'correct' => 'TrainingCorrectBilling'), 'ownattendance' => array('read' => 'TrainingReadOwnAttendance', 'write' => 'TrainingWriteOwnAttendance', 'correct' => 'TrainingCorrectOwnAttendance'), 'trainer' => array('read' => 'TrainingReadTrainers', 'write' => 'TrainingWriteTrainers')) as $domain => $rights) {
+        foreach (array('session' => array('read' => 'TrainingReadSessions', 'write' => 'TrainingWriteSessions'), 'enrollment' => array('read' => 'TrainingReadEnrollments', 'write' => 'TrainingWriteEnrollments'), 'attendance' => array('read' => 'TrainingReadAttendance', 'write' => 'TrainingWriteAttendance', 'correct' => 'TrainingCorrectAttendance'), 'billing' => array('read' => 'TrainingReadBilling', 'write' => 'TrainingWriteBilling', 'correct' => 'TrainingCorrectBilling'), 'ownattendance' => array('read' => 'TrainingReadOwnAttendance', 'write' => 'TrainingWriteOwnAttendance', 'correct' => 'TrainingCorrectOwnAttendance'), 'trainer' => array('read' => 'TrainingReadTrainers', 'write' => 'TrainingWriteTrainers'), 'commercial' => array('read' => 'TrainingReadCommercial', 'write' => 'TrainingWriteCommercial', 'correct' => 'TrainingCorrectCommercial')) as $domain => $rights) {
             foreach ($rights as $key => $label) {
                 $r = count($this->rights);
                 $this->rights[$r] = array(0 => $this->numero + $r + 1, 1 => $label, 3 => 0, 4 => $domain, 5 => $key);

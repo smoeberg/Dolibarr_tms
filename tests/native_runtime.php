@@ -31,7 +31,7 @@ foreach (array('training','service','societe','facture') as $module) {
 }
 nativeCheck(nativeCount('training_course_profile') === 0, 'Clean Training schema');
 $r=$db->query("SELECT COUNT(*) AS n FROM ".$db->prefix()."rights_def WHERE module='training'");
-nativeCheck((int) $db->fetch_object($r)->n === 18, 'All 18 native permission definitions');
+nativeCheck((int) $db->fetch_object($r)->n === 21, 'All 21 native permission definitions');
 $r=$db->query("SELECT COUNT(*) AS n FROM ".$db->prefix()."menu WHERE module='training'");
 nativeCheck((int) $db->fetch_object($r)->n === 2, 'Native Training menus registered once');
 $product=new Product($db);
@@ -64,7 +64,15 @@ $attendance->record($session,$slot,$enrollment,0,array('status'=>'present'));
 nativeCheck((int) $attendance->sheet($session,$slot)['rows'][0]->present_minutes === 60,'Native loaders, booking and attendance round trip');
 $report=(new TrainingReportingService($store))->sessions(new TrainingReportFilter(array('search'=>'NATIVE-CI')));
 nativeCheck($report['totals']['sessions']===1 && $report['totals']['confirmed']===1 && $report['totals']['reserved']===0,'Native reporting totals match session detail');
-$tables=array('training_seat_hold','training_seat_member','training_course_profile','training_course_version','training_audit','training_session','training_session_slot','training_learner','training_enrollment','training_attendance','training_billing_line','training_billing_allocation','training_trainer','training_trainer_assignment');
+require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
+require_once DOL_DOCUMENT_ROOT.'/custom/training/class/trainingcommercialservice.class.php';
+$company=new Societe($db); $company->name='Native Buyer æøå'; $company->client=1; $company->status=1; $company->code_client='auto';
+$companyId=$company->create($user);
+nativeCheck($companyId>0,'Native standard third party creation: '.$company->error);
+$commercial=new TrainingCommercialService($store);
+$commercial->change($session,$enrollment,0,array('buyer'=>$companyId,'payer'=>$companyId,'employer'=>null),'Native commercial registration');
+nativeCheck($commercial->detail($session,$enrollment)['parties']['buyer']->nom==='Native Buyer æøå','Native third-party role round trip');
+$tables=array('training_enrollment_commercial','training_seat_hold','training_seat_member','training_course_profile','training_course_version','training_audit','training_session','training_session_slot','training_learner','training_enrollment','training_attendance','training_billing_line','training_billing_allocation','training_trainer','training_trainer_assignment');
 $counts=array(); foreach ($tables as $table) { $counts[$table]=nativeCount($table); }
 nativeCheck(unActivateModule('modTraining',0) === '', 'Native deactivation');
 $conf->setValues($db);
@@ -81,5 +89,5 @@ nativeCheck($otherContactId>0,'Second native contact for HTTP reservation form')
 $httpSession=$scheduling->create($version,'HTTP-SEAT-CI','HTTP reservation form',2,'Europe/Copenhagen');
 $scheduling->replaceSlots($httpSession,array(array('start'=>'2026-10-20T09:00:00+02:00','end'=>'2026-10-20T10:00:00+02:00')));
 $scheduling->changeStatus($httpSession,'open');
-file_put_contents(__DIR__.'/../.ci/native-fixture.json',json_encode(array('product'=>$productId,'session'=>$session,'slot'=>$slot,'reservation_session'=>$httpSession,'contact'=>$contactId,'other_contact'=>$otherContactId)));
+file_put_contents(__DIR__.'/../.ci/native-fixture.json',json_encode(array('product'=>$productId,'session'=>$session,'slot'=>$slot,'enrollment'=>$enrollment,'company'=>$companyId,'reservation_session'=>$httpSession,'contact'=>$contactId,'other_contact'=>$otherContactId)));
 echo 'Native Dolibarr installation and lifecycle checks passed.'.PHP_EOL;

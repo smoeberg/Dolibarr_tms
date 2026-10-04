@@ -78,6 +78,7 @@ if ($user->hasRight('training', 'enrollment', 'read')) {
             trainingForm('cancel', $id);
             print '<input type="hidden" name="enrollment_id" value="'.(int) $row->rowid.'"><input name="reason" required placeholder="'.trainingEscape($langs->trans('TrainingCancellationReason')).'"><button class="button">'.$langs->trans('TrainingCancelEnrollment').'</button></form>';
         }
+        if ($row->contact && $user->hasRight('training','commercial','read') && $user->hasRight('societe','lire')) { print ' <a href="'.dol_buildpath('/training/commercial.php',1).'?id='.$id.'&enrollment_id='.(int) $row->rowid.'">'.trainingEscape($langs->trans('TrainingCommercial')).'</a>'; }
         print '</td></tr>';
     }
     print '</table>';

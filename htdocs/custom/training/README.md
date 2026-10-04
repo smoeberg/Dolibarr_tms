@@ -1,4 +1,4 @@
-# Training 0.7.0 for Dolibarr
+# Training 0.8.0 for Dolibarr
 
 External module for Dolibarr 24.0.2, PHP 8.4 and MySQL/InnoDB.
 Courses extend standard Dolibarr services; learners link to standard contacts.
@@ -7,7 +7,7 @@ capacity control with named temporary reservations, attendance, invoice-line all
 
 ## Installation
 
-Download `module_training-0.7.0.zip` from the project `dist/` directory.
+Download `module_training-0.8.0.zip` from the project `dist/` directory.
 In Dolibarr, open Setup → Modules/Applications → Deploy/install external module,
 upload this ZIP and activate Training. Dolibarr installs it in `htdocs/custom/training`.
 Enable Services, Third Parties and Invoices. Grant course/session/contact read and the
@@ -20,7 +20,7 @@ For an upgrade, back up the database and module files, upload the new ZIP,
 then deactivate/reactivate Training so missing tables and new rights are registered.
 Deactivation retains course data and audit. No core files are modified.
 Use a test instance before production. The module ID 504850 and permission IDs
-504851–504868 are provisional private IDs; verify they do not conflict locally.
+504851–504871 are provisional private IDs; verify they do not conflict locally.
 Full installation/UI verification on the target server remains to be performed.
 
 Source and documentation: https://github.com/smoeberg/Dolibarr_tms
@@ -43,3 +43,5 @@ The read-only session/capacity overview uses one validated filter and one
 statement snapshot for totals and paginated rows. It requires coordinator
 session/read and enrollment/read; own-attendance rights do not grant access.
 See docs/holdoverblik.md in the repository.
+
+0.8.0: Commercial role links per enrollment reuse standard Dolibarr third parties. New rights commercial/read, write, correct (504869–504871). No accepted price, order creation or payment flow yet.

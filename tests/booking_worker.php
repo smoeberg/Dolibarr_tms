@@ -12,7 +12,13 @@ try {
         if (microtime(true) > $deadline) { throw new RuntimeException('Barrier timeout'); }
         usleep(10000);
     }
-    if ($mode === 'reserve' || $mode === 'reservegroup' || $mode === 'reservesame' || $mode === 'reservesamealias') {
+    if (str_starts_with($mode,'commercial')) {
+        require_once __DIR__.'/../htdocs/custom/training/class/trainingcommercialservice.class.php';
+        $e=$store->rows('SELECT rowid FROM tst_training_enrollment WHERE fk_session='.$sessionId.' ORDER BY rowid')[0];
+        $revision=str_starts_with($mode,'commercialcorrect') ? 1 : 0;
+        (new TrainingCommercialService($store))->change($sessionId,(int) $e->rowid,$revision,array('buyer'=>$value,'payer'=>null,'employer'=>null),'Concurrent role registration');
+        echo json_encode(array('status'=>'changed'));
+    } elseif ($mode === 'reserve' || $mode === 'reservegroup' || $mode === 'reservesame' || $mode === 'reservesamealias') {
         $contacts = $mode === 'reservegroup' ? array($value,$value+1) : array($value);
         $key = str_starts_with($mode, 'reservesame') ? str_repeat('a',32) : hash('sha256',$mode.'-'.$value);
         $id = (new TrainingEnrollmentService($store))->reserve($sessionId,$contacts,$key);
@@ -58,7 +64,7 @@ try {
         echo json_encode(array('status' => 'confirmed', 'id' => $id));
     }
 } catch (Throwable $e) {
-    $expected = array('TrainingSessionFull', 'TrainingCapacityBelowOccupancy', 'TrainingAttendanceConflict', 'TrainingBillingConflict', 'TrainingInvoiceLineAlreadyAllocated', 'TrainingAccessDenied','TrainingParticipantReserved','TrainingParticipantAlreadyBooked','TrainingInvalidTransition');
+    $expected = array('TrainingSessionFull', 'TrainingCapacityBelowOccupancy', 'TrainingAttendanceConflict', 'TrainingBillingConflict', 'TrainingInvoiceLineAlreadyAllocated', 'TrainingAccessDenied','TrainingParticipantReserved','TrainingParticipantAlreadyBooked','TrainingInvalidTransition','TrainingCommercialConflict');
     echo json_encode(array('status' => 'rejected', 'reason' => $e->getMessage()));
     if (!in_array($e->getMessage(), $expected, true)) { exit(1); }
 }
