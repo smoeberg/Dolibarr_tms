@@ -1,5 +1,9 @@
 name: PHP foundation
-on: [push, pull_request]
+on:
+  push:
+    paths: ['htdocs/**', 'tests/**', '.github/workflows/php.yml']
+  pull_request:
+    paths: ['htdocs/**', 'tests/**', '.github/workflows/php.yml']
 permissions:
   contents: read
 jobs:

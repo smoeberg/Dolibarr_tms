@@ -24,6 +24,7 @@ class TestResult {
     public function __construct(array $rows) { $this->rows = $rows; }
 }
 class TestDb {
+    public string $type = 'mysqli';
     public array $sql = array();
     public array $results = array();
     public int $begins = 0;
@@ -44,6 +45,7 @@ class TestDb {
         return true;
     }
     public function fetch_object($result) { return array_shift($result->rows) ?? null; }
+    public function num_rows($result) { return count($result->rows); }
 }
 $input = array('goals' => 'Analyse data', 'target_audience' => 'Analysts', 'units' => array(array('label' => 'Data', 'duration_minutes' => 420), array('label' => 'Analysis', 'duration_minutes' => 420)));
 $program = TrainingProgram::normalize($input);
@@ -97,4 +99,11 @@ $db->results = array(array((object) array('rowid' => 11)), array());
 $catalog = new TrainingCatalogService($db, $access, fn($id) => $product);
 rejects(fn() => $catalog->publish(11, 99), 'TrainingVersionNotFound');
 check($db->rollbacks === 1 && $db->commits === 0, 'foreign or missing version cannot be published');
+define('DOL_DOCUMENT_ROOT', __DIR__.'/fixtures');
+require_once __DIR__.'/../htdocs/custom/training/core/modules/modTraining.class.php';
+$module = new modTraining(new TestDb());
+$module->loadResult = 0;
+check($module->init() === -1 && $module->initCalls === 0, 'schema failure prevents activation');
+$module->loadResult = 1;
+check($module->init() === 1 && $module->initCalls === 1, 'valid schema permits activation');
 echo 'All unit/service tests passed.'.PHP_EOL;

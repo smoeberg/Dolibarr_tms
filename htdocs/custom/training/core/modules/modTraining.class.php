@@ -51,7 +51,8 @@ class modTraining extends DolibarrModules
             return -1;
         }
         $result = $this->_load_tables('/training/sql/');
-        if ($result < 0) {
+        if ($result <= 0) {
+            $this->error = 'Training schema installation failed; module activation was stopped.';
             return -1;
         }
         return $this->_init(array(), $options);
