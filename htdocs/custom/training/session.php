@@ -88,10 +88,16 @@ if ($user->hasRight('training', 'session', 'write')) {
 if ($user->hasRight('training', 'enrollment', 'read')) {
     print '<h3>'.$langs->trans('TrainingEnrollments').'</h3><p>'.$langs->trans('TrainingAdministrativeBooking').'</p>';
     try { $rows = $enrollments->listForSession($id); } catch (Throwable $e) { $rows = array(); print '<div class="error">'.trainingError($e).'</div>'; }
-    print '<table class="liste centpercent"><tr class="liste_titre"><th>'.$langs->trans('TrainingParticipant').'</th><th>'.$langs->trans('Status').'</th><th></th></tr>';
+    print '<table class="liste centpercent"><tr class="liste_titre"><th>'.$langs->trans('TrainingParticipant').'</th><th>'.$langs->trans('Status').'</th><th>'.$langs->trans('TrainingPrice').'</th><th></th></tr>';
     foreach ($rows as $row) {
         $name = $row->contact ? trim($row->contact->firstname.' '.$row->contact->lastname) : $langs->trans('TrainingRestrictedContact');
-        print '<tr><td>'.trainingEscape($name).'</td><td>'.trainingEscape($langs->trans('TrainingEnrollment'.ucfirst($row->status))).'</td><td>';
+        $priceDisplay = '';
+        if ($row->is_price_frozen && $row->price_ttc !== null) {
+            $priceDisplay = $row->price_ttc.' '.$row->currency.' ('.($row->is_price_frozen ? $langs->trans('TrainingPriceFrozen') : $langs->trans('TrainingPriceCurrent')).')';
+        } elseif ($row->price_ttc !== null) {
+            $priceDisplay = $row->price_ttc.' '.$row->currency;
+        }
+        print '<tr><td>'.trainingEscape($name).'</td><td>'.trainingEscape($langs->trans('TrainingEnrollment'.ucfirst($row->status))).'</td><td>'.trainingEscape($priceDisplay).'</td><td>';
         if ($row->status === 'confirmed' && $row->contact && $user->hasRight('training', 'enrollment', 'write')) {
             trainingForm('cancel', $id);
             print '<input type="hidden" name="enrollment_id" value="'.(int) $row->rowid.'"><input name="reason" required placeholder="'.trainingEscape($langs->trans('TrainingCancellationReason')).'"><button class="button">'.$langs->trans('TrainingCancelEnrollment').'</button></form>';

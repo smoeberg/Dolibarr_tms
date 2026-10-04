@@ -1,9 +1,11 @@
 <?php
 require_once __DIR__.'/trainingstore.class.php';
+require_once __DIR__.'/trainingpriceservice.class.php';
 final class TrainingEnrollmentService
 {
     private TrainingStore $s;
-    public function __construct(TrainingStore $store) { $this->s = $store; }
+    private TrainingPriceService $priceService;
+    public function __construct(TrainingStore $store) { $this->s = $store; $this->priceService = new TrainingPriceService($store); }
     private function allow(string $right): void {
         $this->s->access->requireDomain('session', 'read'); $this->s->access->requireDomain('enrollment', $right);
     }
@@ -28,6 +30,13 @@ final class TrainingEnrollmentService
             $row->contact = null;
             try { $row->contact = $this->s->contact((int) $row->fk_socpeople); }
             catch (Throwable $e) { $row->fk_socpeople = null; }
+            // Add price snapshot info
+            $priceInfo = $this->priceService->getEnrollmentPriceInfo($id, (int) $row->rowid);
+            $row->price_ht = $priceInfo['price_ht'];
+            $row->price_ttc = $priceInfo['price_ttc'];
+            $row->currency = $priceInfo['currency'];
+            $row->tva_tx = $priceInfo['tva_tx'];
+            $row->is_price_frozen = $priceInfo['is_frozen'];
         }
         return $rows;
     }
@@ -70,6 +79,8 @@ final class TrainingEnrollmentService
                 $this->s->query('INSERT INTO '.$this->s->table('enrollment').' (entity, fk_session, fk_learner, status, datec, fk_user_author, changed_at, fk_user_modifier) VALUES ('.$entity.', '.$id.', '.$learnerId.", 'confirmed', ".$this->s->now().', '.$this->s->access->actor().', '.$this->s->now().', '.$this->s->access->actor().')');
                 $enrollmentId = (int) $this->s->db->last_insert_id($this->s->table('enrollment'));
             }
+            // Create price snapshot at confirmation time - freezes catalog price
+            $this->priceService->createSnapshot($id, $enrollmentId, $contactId);
             $this->s->audit('enrollment', $enrollmentId, 'confirmed', array('session_id' => $id, 'reconfirmed' => (bool) $existing));
             return $enrollmentId;
     }
