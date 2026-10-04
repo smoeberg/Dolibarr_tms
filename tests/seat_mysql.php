@@ -93,6 +93,11 @@ $db->failAudit=true;
 seatReject(fn()=>$seatBooking->confirmReservation($id,$hold,'Fail audit'),'TrainingDatabaseError');
 $db->failAudit=false;
 verify($seatSchedule->detail($id)['occupied']===0 && $seatSchedule->detail($id)['reserved']===2,'conversion and all learner/enrollment writes roll back on failed audit');
+$beforeAudit=$db->count('training_audit'); $db->auditFailureCountdown=3;
+seatReject(fn()=>$seatBooking->confirmReservation($id,$hold,'Fail final group audit'),'TrainingDatabaseError');
+verify($db->count('training_audit')===$beforeAudit && $seatSchedule->detail($id)['occupied']===0 && $seatSchedule->detail($id)['reserved']===2,'final hold audit failure rolls back both confirmed enrollments and their earlier audit events');
+$mapped=$db->query('SELECT COUNT(*) AS n FROM tst_training_seat_member WHERE fk_seat_hold='.$hold.' AND fk_enrollment IS NOT NULL')->fetch_object();
+verify((int) $mapped->n===0,'failed final conversion audit leaves no member enrollment links');
 $db->failAudit=true;
 seatReject(fn()=>$seatBooking->releaseReservation($id,$hold,'Fail release audit'),'TrainingDatabaseError');
 $db->failAudit=false;
@@ -101,6 +106,13 @@ $before=$db->count('training_seat_hold'); $db->failAudit=true;
 seatReject(fn()=>$seatBooking->reserve($id,array(23),seatKey('fail-reserve')),'TrainingDatabaseError');
 $db->failAudit=false;
 verify($db->count('training_seat_hold')===$before && $seatSchedule->detail($id)['reserved']===2,'reserve audit failure rolls back hold and member rows');
+
+$db->query("INSERT INTO tst_socpeople (rowid,entity,firstname,lastname,statut) VALUES (40,1,'New','First member',1),(41,1,'New','Second member',1)");
+$rollbackSession=seatSession('SEAT-NEW-LEARNER-ROLLBACK',2);
+$rollbackHold=$seatBooking->reserve($rollbackSession,array(40,41),seatKey('new-learner-rollback'));
+$beforeLearners=$db->count('training_learner'); $beforeAudit=$db->count('training_audit'); $db->auditFailureCountdown=3;
+seatReject(fn()=>$seatBooking->confirmReservation($rollbackSession,$rollbackHold,'Rollback whole fresh group'),'TrainingDatabaseError');
+verify($db->count('training_learner')===$beforeLearners && $db->count('training_audit')===$beforeAudit && $seatSchedule->detail($rollbackSession)['occupied']===0,'late audit failure also rolls back newly created learner profiles for both contacts');
 
 for ($round=1;$round<=3;$round++) {
     $id=seatSession('SEAT-ADMIN-RACE-'.$round,1);

@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 import subprocess
 import time
-from urllib.error import URLError
+from urllib.error import URLError, HTTPError
 from urllib.parse import urlencode
 from urllib.request import build_opener, HTTPCookieProcessor
 
@@ -79,6 +79,16 @@ with (repo / '.ci/http.log').open('w') as log:
         parser = Inputs(); parser.feed(repeated)
         approval = dict(token=parser.values['token'], id=fixture['reservation_session'], action='confirmReservation',
                         hold_id=parser.values['hold_id'], reason='Native HTTP coordinator approval')
+        without_token = dict(approval); without_token.pop('token')
+        try:
+            request(anonymous, path, without_token)
+            raise AssertionError('Reservation write without CSRF token was accepted')
+        except HTTPError as error:
+            assert error.code == 403, 'Missing CSRF token must be refused by core'
+        forged = dict(approval, token='invalid-token', action='releaseReservation')
+        page = request(anonymous, path, forged)
+        assert '<td>Active reservation</td>' in unescape(page), 'Forged token changed reservation status'
+        print('OK: native missing and invalid CSRF token cannot mutate reservation')
         page = request(anonymous, path, approval)
         assert '<td>Confirmed</td>' in unescape(page), 'Reservation approval form failed'
         page = request(anonymous, f'/custom/training/session.php?id={fixture["reservation_session"]}')
