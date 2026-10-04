@@ -2,13 +2,13 @@
 
 Et nyt kursusadministrationsmodul til Dolibarr med online tilmelding gennem Dolibarr Website.
 
-**Status:** Arkitektur og standard-/gapkortlægning, version 2.5. Første kodeleverance **0.1.0** indeholder modulgrundlag, kursusfane, programkladder og publicering med audit. Installationstest mod Dolibarr og kapacitets-/betalingsprototyper udestår.
+**Status:** Arkitektur og standard-/gapkortlægning, version 2.5. Kodegrundlaget **0.1.0** indeholder kursusprofiler og programversioner. **0.2.0** på en feature-branch tilføjer hold, undervisningsblokke og administrativ tilmelding med kapacitetsstyring. Installationstest mod Dolibarr og kapacitets-/betalingsprototyper udestår.
 
 **Målversion:** Dolibarr 24.0.2, valgt af brugeren. PHP 8.4.26 og MySQL er oplyst via brugerens installationscheck. MySQL-version, testmiljø og betalingsudbyder er endnu ikke afklaret. Kompatibilitetstest mod målversionen udestår.
 
 ## Kode og installation
 
-Modulkoden ligger i [`htdocs/custom/training`](htdocs/custom/training). Se [udviklingsstatus, tests og installationsvejledning](docs/udvikling.md) før testinstallation. Hold, tilmeldinger og online checkout er endnu ikke implementeret.
+Modulkoden ligger i [`htdocs/custom/training`](htdocs/custom/training). Se [udviklingsstatus, tests og installationsvejledning](docs/udvikling.md) før testinstallation. Se [hold og tilmelding 0.2.0](docs/hold-og-tilmelding.md) for den nye leverance og dens grænser. Online checkout er endnu ikke implementeret.
 
 ## Dokumentation
 
@@ -45,7 +45,7 @@ Dokumentet henviser til screenshots og reviewtekster fra designarbejdet. Disse b
 | Fase | Indhold | Status |
 | --- | --- | --- |
 | Fase 0 | Standard-/gapkortlægning og målarkitektur | Dokumenteret; miljøvalg og runtime-prototyper udestår |
-| Fase 1A | Intern kerne: kursusversioner, hold, blokke, tilmeldinger, økonomirelationer og basis-fremmøde | Påbegyndt: kursusgrundlag i 0.1.0 |
+| Fase 1A | Intern kerne: kursusversioner, hold, blokke, tilmeldinger, økonomirelationer og basis-fremmøde | Påbegyndt: kursusgrundlag 0.1.0 samt hold/tilmelding 0.2.0 til review |
 | Fase 1B | Online tilmelding: ét hold pr. checkout, navngivne deltagere, én betalingsudbyder, godkendt B2B-faktura, outbox og afstemning | Planlagt |
 | Fase 2 | Udvidelser som certifikater, avanceret bedømmelse, ventelisteautomatik og portal | Udskudt |
 
@@ -59,3 +59,5 @@ Dokumentet henviser til screenshots og reviewtekster fra designarbejdet. Disse b
 
 Estimater og driftsmål i arkitekturen er foreløbige. Dokumentationen er et udviklingsgrundlag; den er ikke dokumentation for et allerede fungerende modul.
 
+
+Udviklingsarbejdsgangen er beskrevet i [CONTRIBUTING.md](CONTRIBUTING.md): en branch pr. opgave og pull request før merge til main.
