@@ -58,3 +58,7 @@ Kildekontrol er udført; runtimekompatibilitet afventer installationstest.
 ## Næste lodrette leverance
 
 Hold → undervisningsblokke → learner-link til standardkontakt → tilmelding → kapacitetslås og samtidighedsprøve. Derefter økonomilinjerelationer og basisfremmøde. Online tilmelding gennem Website er Fase 1B og bruger det samme servicelag.
+
+## Verifikationsresultat, 4. oktober 2026
+
+[CI-kørsel for commit b101a364](https://github.com/smoeberg/Dolibarr_tms/actions/runs/37163877781) er afsluttet med **success**. PHP-syntaks, unit/service-tests inklusive stop ved schemafejl og syntetiske MySQL-schema-/transaktionstests er alle bestået. Miljø: workflowets PHP 8.4-container og MySQL 8.0-testcontainer. Dette verificerer ikke den specifikke PHP-patch 8.4.26, brugerens ukendte MySQL-version eller en faktisk Dolibarr-installation. Fanen, standardadapterne og installation/deaktivering/genaktivering skal derfor stadig gennemgås i målmiljøet.
