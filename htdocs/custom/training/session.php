@@ -36,6 +36,9 @@ print '<a href="'.dol_buildpath('/training/sessions.php', 1).'?product_id='.$ses
 print '<h2>'.trainingEscape($session->ref).' — '.trainingEscape($session->label).'</h2>';
 if ($error) { print '<div class="error">'.$error.'</div>'; }
 print '<p>'.trainingEscape($langs->trans('TrainingSession'.ucfirst($session->status))).' · '.$detail['occupied'].' / '.(int) $session->capacity.' · '.trainingEscape($session->timezone).'</p>';
+if ($user->hasRight('training', 'billing', 'read') && $user->hasRight('facture', 'lire')) {
+    print '<p><a href="'.dol_buildpath('/training/billing.php', 1).'?id='.$id.'">'.trainingEscape($langs->trans('TrainingBilling')).'</a></p>';
+}
 print '<h3>'.$langs->trans('TrainingSlots').'</h3><ul>';
 $slotText = array();
 foreach ($detail['slots'] as $slot) {

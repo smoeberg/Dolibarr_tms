@@ -59,6 +59,21 @@ final class TrainingAccess
         }
     }
 
+    public function requireInvoiceRead(): void
+    {
+        if (!$this->user->hasRight('facture', 'lire')) { throw new RuntimeException('TrainingInvoiceNotAccessible'); }
+    }
+    public function requireBillingCustomer(int $socid, $db): void
+    {
+        if ($socid < 1) { throw new RuntimeException('TrainingInvoiceNotAccessible'); }
+        $sql = 'SELECT s.rowid FROM '.$db->prefix().'societe s WHERE s.rowid='.$socid.' AND s.entity IN ('.implode(',', $this->thirdpartyEntities).')';
+        if (!$this->user->hasRight('societe', 'client', 'voir')) {
+            $sql .= ' AND EXISTS (SELECT 1 FROM '.$db->prefix().'societe_commerciaux sc WHERE sc.fk_soc=s.rowid AND sc.fk_user='.$this->actor().')';
+        }
+        $r = $db->query($sql);
+        if (!$r || !$db->fetch_object($r)) { throw new RuntimeException('TrainingInvoiceNotAccessible'); }
+    }
+
     public function requireContactRead(): void
     {
         if (!$this->user->hasRight('societe', 'contact', 'lire')) { throw new RuntimeException('TrainingContactNotAccessible'); }
