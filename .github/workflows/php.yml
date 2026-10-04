@@ -1,9 +1,9 @@
 name: PHP foundation
 on:
   push:
-    paths: ['htdocs/**', 'tests/**', '.github/workflows/php.yml']
+    paths: ['htdocs/**', 'tests/**', 'tools/**', 'dist/**', '.github/workflows/php.yml']
   pull_request:
-    paths: ['htdocs/**', 'tests/**', '.github/workflows/php.yml']
+    paths: ['htdocs/**', 'tests/**', 'tools/**', 'dist/**', '.github/workflows/php.yml']
 permissions:
   contents: read
 jobs:
@@ -23,12 +23,25 @@ jobs:
           --health-retries=10
     steps:
       - uses: actions/checkout@v4
+      - name: Package tooling and PHP drivers
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends python3 git libzip-dev
+          docker-php-ext-install mysqli zip
+      - uses: actions/checkout@v4
+        with:
+          repository: Dolibarr/dolibarr
+          ref: '24.0.2'
+          path: .ci/dolibarr
+          sparse-checkout: htdocs/core/modules
+      - name: Reproducible installable module
+        run: python3 tests/package.py
+      - name: Official Dolibarr module descriptor
+        run: php tests/package_descriptor.php
       - name: PHP syntax
         run: find htdocs tests -name '*.php' -print0 | xargs -0 -n 1 php -l
       - name: Unit and service tests
         run: php tests/run.php
-      - name: MySQL driver
-        run: docker-php-ext-install mysqli
       - name: MySQL schema and transaction tests
         run: php tests/mysql.php
         env:

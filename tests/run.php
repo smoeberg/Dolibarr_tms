@@ -121,3 +121,17 @@ rejects(fn() => $access->requireContact($contact, $db), 'TrainingContactNotAcces
 $access->requireDomain('session','read');
 rejects(fn() => $access->requireDomain('session','write'), 'TrainingAccessDenied');
 echo 'All unit/service tests passed.'.PHP_EOL;
+require_once __DIR__.'/../htdocs/custom/training/class/trainingattendancerecord.class.php';
+$attendanceSlot = (object) array('start_utc'=>'2026-10-20 07:00:00', 'end_utc'=>'2026-10-20 14:00:00');
+$normalize = fn($input) => TrainingAttendanceRecord::normalize($input, $attendanceSlot, 'Europe/Copenhagen');
+check($normalize(array('status'=>'not_registered'))['present_minutes'] === null, 'unregistered attendance is unknown, not absent');
+$full = $normalize(array('status'=>'present'));
+check($full['present_minutes'] === 420 && $full['arrival_utc'] === null, 'full-slot attestation does not invent an arrival');
+$partial = $normalize(array('status'=>'present', 'arrival'=>'2026-10-20T09:14:00+02:00', 'departure'=>'2026-10-20T15:00:00+02:00'));
+check($partial['status'] === 'late' && $partial['late_minutes'] === 14 && $partial['present_minutes'] === 346, 'late and partial attendance uses observed UTC times');
+rejects(fn() => $normalize(array('status'=>'late')), 'TrainingAttendanceTimesRequired');
+rejects(fn() => $normalize(array('status'=>'absent', 'arrival'=>'2026-10-20T09:00:00+02:00')), 'TrainingAbsentHasTimes');
+rejects(fn() => $normalize(array('status'=>'present', 'arrival'=>'2026-10-20T09:00:00+01:00', 'departure'=>'2026-10-20T16:00:00+01:00')), 'TrainingInvalidAttendanceTimes');
+rejects(fn() => $normalize(array('status'=>'present', 'arrival'=>'2026-10-20T08:59:00+02:00', 'departure'=>'2026-10-20T16:00:00+02:00')), 'TrainingInvalidAttendanceTimes');
+check(count($module->rights) === 10 && count(array_unique(array_column($module->rights, 0))) === 10, 'distinct attendance permissions registered');
+echo 'All attendance normalization tests passed.'.PHP_EOL;

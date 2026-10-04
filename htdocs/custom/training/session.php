@@ -39,7 +39,7 @@ print '<p>'.trainingEscape($langs->trans('TrainingSession'.ucfirst($session->sta
 print '<h3>'.$langs->trans('TrainingSlots').'</h3><ul>';
 $slotText = array();
 foreach ($detail['slots'] as $slot) {
-    print '<li>'.trainingEscape(trainingLocal($slot->start_utc, $session->timezone)).' — '.trainingEscape(trainingLocal($slot->end_utc, $session->timezone)).'</li>';
+    print '<li>'.trainingEscape(trainingLocal($slot->start_utc, $session->timezone)).' — '.trainingEscape(trainingLocal($slot->end_utc, $session->timezone)).($user->hasRight('training', 'attendance', 'read') ? ' <a href="'.dol_buildpath('/training/attendance.php', 1).'?id='.$id.'&slot_id='.(int) $slot->rowid.'">'.trainingEscape($langs->trans('TrainingAttendance')).'</a>' : '').'</li>';
     $zone = new DateTimeZone($session->timezone);
     $start = (new DateTimeImmutable($slot->start_utc, new DateTimeZone('UTC')))->setTimezone($zone)->format('Y-m-d\TH:i:sP');
     $end = (new DateTimeImmutable($slot->end_utc, new DateTimeZone('UTC')))->setTimezone($zone)->format('Y-m-d\TH:i:sP');
