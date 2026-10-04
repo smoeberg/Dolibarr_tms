@@ -8,6 +8,7 @@ $db->query('DROP TABLE IF EXISTS tst_training_course_profile');
 $db->query('DROP TABLE IF EXISTS tst_training_audit');
 $db->query('DROP TABLE IF EXISTS tst_product');
 $standardUserSchema = str_replace('llx_', 'tst_', file_get_contents(__DIR__.'/../.ci/dolibarr/htdocs/install/mysql/tables/llx_user.sql'));
+$standardUserSchema = preg_replace('/^\s*--.*$/m', '', $standardUserSchema); // Match Dolibarr run_sql comment handling.
 $db->connection->multi_query($standardUserSchema);
 do { if ($result=$db->connection->store_result()) { $result->free(); } } while ($db->connection->more_results() && $db->connection->next_result());
 $db->query("INSERT INTO tst_user (rowid,entity,login,firstname,lastname,statut) VALUES (7,2,'coordinator','Coordinator','Test',1),(8,2,'trainer','Trainer','Test',1),(9,2,'othertrainer','Other','Trainer',1),(10,3,'foreign','Foreign','User',1),(11,2,'disabled','Disabled','User',0),(12,2,'external','External','User',1)");
