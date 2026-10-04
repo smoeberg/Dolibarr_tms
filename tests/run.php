@@ -175,3 +175,10 @@ foreach (array(array('from'=>'2026-02-30'),array('from'=>'2026-10-21','to'=>'202
     try { new TrainingReportFilter($input); throw new LogicException('Invalid report filter accepted'); }
     catch (InvalidArgumentException $e) { check($e->getMessage()==='TrainingInvalidReportFilter','invalid report filter rejected'); }
 }
+
+$midnightGap=new TrainingReportFilter(array('from'=>'2018-11-04','to'=>'2018-11-04','timezone'=>'America/Sao_Paulo'));
+check($midnightGap->fromUtc==='2018-11-04 03:00:00' && $midnightGap->untilUtc==='2018-11-05 02:00:00','report midnight DST gap ends at next local midnight, not normalized 01:00');
+$skippedNextDay=new TrainingReportFilter(array('from'=>'2011-12-29','to'=>'2011-12-29','timezone'=>'Pacific/Apia'));
+check(strtotime($skippedNextDay->untilUtc.' UTC')-strtotime($skippedNextDay->fromUtc.' UTC')===24*3600,'exclusive report boundary can normalize an entirely skipped next local date');
+try { new TrainingReportFilter(array('from'=>'2011-12-30','timezone'=>'Pacific/Apia')); throw new LogicException('Skipped input date accepted'); }
+catch (InvalidArgumentException $e) { check($e->getMessage()==='TrainingInvalidReportFilter','entirely skipped local input date rejected'); }

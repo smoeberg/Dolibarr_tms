@@ -22,7 +22,11 @@ final readonly class TrainingReportFilter
         if ($start && $end && $start>$end) { throw new InvalidArgumentException('TrainingInvalidReportFilter'); }
         $utc=new DateTimeZone('UTC');
         $this->fromUtc=$start ? $start->setTimezone($utc)->format('Y-m-d H:i:s') : null;
-        $this->untilUtc=$end ? $end->modify('+1 day')->setTimezone($utc)->format('Y-m-d H:i:s') : null;
+        // Advance the calendar date in UTC, then resolve local midnight. Retaining
+        // a normalized 01:00 from a midnight DST gap would shift the end by an hour.
+        $nextDate=$end ? DateTimeImmutable::createFromFormat('!Y-m-d',$this->to,$utc)->modify('+1 day')->format('Y-m-d') : null;
+        $until=$nextDate ? new DateTimeImmutable($nextDate.' 00:00:00',new DateTimeZone($this->timezone)) : null;
+        $this->untilUtc=$until ? $until->setTimezone($utc)->format('Y-m-d H:i:s') : null;
     }
     private function day(string $value): ?DateTimeImmutable {
         if ($value==='') { return null; }
