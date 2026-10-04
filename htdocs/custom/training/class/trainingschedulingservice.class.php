@@ -13,7 +13,8 @@ final class TrainingSchedulingService
     }
     public function detail(int $id): array {
         $this->allow('read'); $session = $this->s->session($id);
-        return array('session' => $session, 'occupied' => $this->s->occupied($id), 'slots' => $this->slots($id));
+        $capacity = $this->s->capacity($id);
+        return array('session' => $session, 'occupied' => $capacity['confirmed'], 'reserved' => $capacity['reserved'], 'available' => (int) $session->capacity-$capacity['occupied'], 'capacity_at' => $capacity['at'], 'slots' => $this->slots($id));
     }
     private function slots(int $id): array {
         return $this->s->rows('SELECT * FROM '.$this->s->table('session_slot').' WHERE entity='.$this->s->access->entity().' AND fk_session='.$id.' ORDER BY position');
@@ -65,7 +66,7 @@ final class TrainingSchedulingService
         if ($capacity < 1 || $capacity > 10000) { throw new InvalidArgumentException('TrainingInvalidSession'); }
         $this->s->transaction(function () use ($id, $capacity) {
             $session = $this->s->session($id, true);
-            if ($capacity < $this->s->occupied($id, true)) { throw new RuntimeException('TrainingCapacityBelowOccupancy'); }
+            if ($capacity < $this->s->capacity($id, true)['occupied']) { throw new RuntimeException('TrainingCapacityBelowOccupancy'); }
             if ((int) $session->capacity === $capacity) { return; }
             $this->s->query('UPDATE '.$this->s->table('session').' SET capacity='.$capacity.' WHERE rowid='.$id.' AND entity='.$this->s->access->entity());
             $this->s->audit('session', $id, 'capacity_changed', array('from' => (int) $session->capacity, 'to' => $capacity));

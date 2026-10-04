@@ -164,3 +164,26 @@ TrainingTrainerReasonRequired=Assignment or removal requires a reason (at most 2
 TrainingTrainerConflict=Another user changed this assignment. Reload and review the change.
 TrainingTrainerInactive=The user or profile is inactive or external and cannot receive a new active assignment.
 TrainingTrainerAssignmentNotFound=The assignment does not exist on this session.
+
+# Seat reservations 0.6.0
+TrainingReservations=Seat reservations
+TrainingReservationHelp=Internal coordinator tool. Reserve named participants for 15 minutes. Confirmation is administrative approval and does not indicate payment. Expired reservations require a fresh capacity check.
+TrainingCapacitySummary=Confirmed: %s · Reserved: %s · Available: %s · Capacity: %s
+TrainingReserve15Minutes=Reserve selected participants for 15 minutes
+TrainingReservationExpires=Expires (session timezone)
+TrainingReservationActive=Active reservation
+TrainingReservationExpired=Expired
+TrainingReservationConverted=Confirmed
+TrainingReservationReleased=Released
+TrainingConfirmReservation=Approve all participants
+TrainingReleaseReservation=Release reservation
+TrainingReservationEventReserved=Reservation created
+TrainingReservationEventConverted=Participants confirmed
+TrainingReservationEventReleased=Reservation released
+TrainingInvalidReservation=Select 1–100 distinct named participants and use a valid request key and duration.
+TrainingReservationNotFound=Reservation not found in this session.
+TrainingReservationKeyConflict=This request key was already used with different participants or duration.
+TrainingParticipantReserved=A participant already has an active reservation in this session. Use that reservation to confirm.
+TrainingParticipantAlreadyBooked=A participant is already confirmed in this session.
+TrainingReservationReasonRequired=Provide a reason for approving or releasing the reservation.
+TrainingReservationIntegrityError=Reservation participants are inconsistent; contact the coordinator.

@@ -4,17 +4,17 @@
 
 CI opretter en disponibel Dolibarr-installation med den officielle kildekode fra tag `24.0.2`, PHP 8.4 og MySQL 8.0. Databasen deles med de eksisterende integrationstest, men standardinstallationen bruger `llx_`, mens de syntetiske test bruger `tst_`. Ingen produktionsinstallation kontaktes.
 
-`tests/native_install.py` skriver en testkonfiguration, udpakker den leverede `dist/module_training-0.5.0.zip` under standardstien `htdocs/custom/` og kører Dolibarrs egne `install/step2.php` og `install/step5.php`. Disse opretter standardtabeller, referencedata, administrator og installationslås. Konfigurationsskrivning og ZIP-udpakning sker automatisk; installationsguidens formularer og modulets uploadformular betjenes ikke i denne test.
+`tests/native_install.py` skriver en testkonfiguration, udpakker den leverede `dist/module_training-0.6.0.zip` under standardstien `htdocs/custom/` og kører Dolibarrs egne `install/step2.php` og `install/step5.php`. Disse opretter standardtabeller, referencedata, administrator og installationslås. Konfigurationsskrivning og ZIP-udpakning sker automatisk; installationsguidens formularer og modulets uploadformular betjenes ikke i denne test.
 
 `tests/native_runtime.php` bruger den rigtige `master.inc.php`, `activateModule()` og `unActivateModule()`. Den kontrollerer:
 
 - Modul og afhængigheder aktiveres, 18 rettighedsdefinitioner og underviserens menu registreres.
 - Standardtabeller og Training-tabeller findes gennem Dolibarrs egen SQL-loader.
 - Standard `Product` opretter kursusservicen; standard `Contact` opretter deltageren. Modulets normale loaders genindlæser dem.
-- Kursusversion publiceres, hold åbnes, navngiven deltager tilmeldes og fremmøde registreres. En intern standardbruger tildeles holdet og får holdet i mine hold.
+- Kursusversion publiceres, hold åbnes, navngiven deltager reserveres og bekræftes og fremmøde registreres. En intern standardbruger tildeles holdet og får holdet i mine hold.
 - Deaktivering og genaktivering bevarer antal rækker i alle Training-tabeller og det registrerede fremmøde.
 
-`tests/native_http.py` starter en lokal PHP-webserver, logger ind gennem Dolibarrs rigtige login med session-cookie og CSRF-token og kontrollerer katalog, holdoversigt, holdkort, fremmøde, undervisertildeling, fakturafordeling og mine hold samt Training-fanen på standardservicekortet. Uden login skal fremmødesiden vise loginformularen og ikke deltageroplysninger. Det er HTTP-kontrol af gengivet indhold, ikke visuel browserkontrol eller en komplet formular-/rettighedstest.
+`tests/native_http.py` starter en lokal PHP-webserver, logger ind gennem Dolibarrs rigtige login med session-cookie og CSRF-token og kontrollerer katalog, holdoversigt, holdkort, fremmøde, undervisertildeling, fakturafordeling, pladsreservationer og mine hold samt Training-fanen på standardservicekortet. Uden login skal fremmødesiden vise loginformularen og ikke deltageroplysninger. Det er HTTP-kontrol af gengivet indhold, ikke visuel browserkontrol eller en komplet formular-/rettighedstest.
 
 Testene kræver `CI=true` og placering i `.ci/dolibarr`; de er beregnet til CI's disponible installation. Testadministrator og databaseadgang er kun testdata. De må ikke bruges på en rigtig server.
 

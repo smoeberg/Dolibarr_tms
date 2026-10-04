@@ -35,7 +35,10 @@ llxHeader('', $langs->trans('TrainingSession'));
 print '<a href="'.dol_buildpath('/training/sessions.php', 1).'?product_id='.$session->fk_product.'">'.$langs->trans('TrainingSessions').'</a>';
 print '<h2>'.trainingEscape($session->ref).' — '.trainingEscape($session->label).'</h2>';
 if ($error) { print '<div class="error">'.$error.'</div>'; }
-print '<p>'.trainingEscape($langs->trans('TrainingSession'.ucfirst($session->status))).' · '.$detail['occupied'].' / '.(int) $session->capacity.' · '.trainingEscape($session->timezone).'</p>';
+print '<p>'.trainingEscape($langs->trans('TrainingSession'.ucfirst($session->status))).' · '.trainingEscape($langs->trans('TrainingCapacitySummary', $detail['occupied'], $detail['reserved'], $detail['available'], $session->capacity)).' · '.trainingEscape($session->timezone).'</p>';
+if ($user->hasRight('training', 'enrollment', 'read')) {
+    print '<p><a href="'.dol_buildpath('/training/reservations.php', 1).'?id='.$id.'">'.trainingEscape($langs->trans('TrainingReservations')).'</a></p>';
+}
 if ($user->hasRight('training', 'billing', 'read') && $user->hasRight('facture', 'lire')) {
     print '<p><a href="'.dol_buildpath('/training/billing.php', 1).'?id='.$id.'">'.trainingEscape($langs->trans('TrainingBilling')).'</a></p>';
 }

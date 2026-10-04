@@ -12,7 +12,18 @@ try {
         if (microtime(true) > $deadline) { throw new RuntimeException('Barrier timeout'); }
         usleep(10000);
     }
-    if ($mode === 'trainerrevoke') {
+    if ($mode === 'reserve' || $mode === 'reservegroup' || $mode === 'reservesame' || $mode === 'reservesamealias') {
+        $contacts = $mode === 'reservegroup' ? array($value,$value+1) : array($value);
+        $key = str_starts_with($mode, 'reservesame') ? str_repeat('a',32) : hash('sha256',$mode.'-'.$value);
+        $id = (new TrainingEnrollmentService($store))->reserve($sessionId,$contacts,$key);
+        echo json_encode(array('status'=>'reserved','id'=>$id));
+    } elseif ($mode === 'convert') {
+        $ids=(new TrainingEnrollmentService($store))->confirmReservation($sessionId,$value,'Concurrent coordinator approval');
+        echo json_encode(array('status'=>'converted','ids'=>$ids));
+    } elseif ($mode === 'release') {
+        (new TrainingEnrollmentService($store))->releaseReservation($sessionId,$value,'Concurrent release');
+        echo json_encode(array('status'=>'released'));
+    } elseif ($mode === 'trainerrevoke') {
         require_once __DIR__.'/../htdocs/custom/training/class/trainingtrainerservice.class.php';
         (new TrainingTrainerService($store))->change($sessionId,$value,1,'revoked','Concurrent removal');
         echo json_encode(array('status'=>'revoked'));
@@ -47,7 +58,7 @@ try {
         echo json_encode(array('status' => 'confirmed', 'id' => $id));
     }
 } catch (Throwable $e) {
-    $expected = array('TrainingSessionFull', 'TrainingCapacityBelowOccupancy', 'TrainingAttendanceConflict', 'TrainingBillingConflict', 'TrainingInvoiceLineAlreadyAllocated', 'TrainingAccessDenied');
+    $expected = array('TrainingSessionFull', 'TrainingCapacityBelowOccupancy', 'TrainingAttendanceConflict', 'TrainingBillingConflict', 'TrainingInvoiceLineAlreadyAllocated', 'TrainingAccessDenied','TrainingParticipantReserved','TrainingParticipantAlreadyBooked','TrainingInvalidTransition');
     echo json_encode(array('status' => 'rejected', 'reason' => $e->getMessage()));
     if (!in_array($e->getMessage(), $expected, true)) { exit(1); }
 }

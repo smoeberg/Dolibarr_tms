@@ -1,13 +1,13 @@
-# Training 0.5.0 for Dolibarr
+# Training 0.6.0 for Dolibarr
 
 External module for Dolibarr 24.0.2, PHP 8.4 and MySQL/InnoDB.
 Courses extend standard Dolibarr services; learners link to standard contacts.
 Includes versioned programs, sessions, slots, named administrative enrollment,
-capacity control, attendance, invoice-line allocations and transactional audit. Online checkout is planned.
+capacity control with named temporary reservations, attendance, invoice-line allocations and transactional audit. Online checkout is planned.
 
 ## Installation
 
-Download `module_training-0.5.0.zip` from the project `dist/` directory.
+Download `module_training-0.6.0.zip` from the project `dist/` directory.
 In Dolibarr, open Setup → Modules/Applications → Deploy/install external module,
 upload this ZIP and activate Training. Dolibarr installs it in `htdocs/custom/training`.
 Enable Services, Third Parties and Invoices. Grant course/session/contact read and the
@@ -32,3 +32,9 @@ Trainer profiles link to standard internal Users. Assignments grant attendance
 access only together with ownattendance/read, write and correct permissions.
 Trainers should not receive the coordinator-wide attendance permissions.
 See docs/underviseradgang.md in the repository for role setup and upgrade steps.
+
+Coordinators can reserve named standard Contacts for 15 minutes from the session
+card, approve a whole group or release it with a reason. Expired holds stop
+consuming capacity without a job. Administrative approval does not indicate
+payment; Website checkout and payment verification are not included.
+See docs/pladsreservationer.md in the repository.
