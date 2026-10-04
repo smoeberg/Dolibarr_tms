@@ -69,3 +69,5 @@ require __DIR__.'/booking_mysql.php';
 require_once __DIR__.'/attendance_mysql.php';
 
 require_once __DIR__.'/billing_mysql.php';
+
+require_once __DIR__.'/attendance_picker_mysql.php';

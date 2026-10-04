@@ -129,3 +129,16 @@ TrainingBillingReasonRequired=A correction requires a reason (at most 2000 bytes
 
 TrainingBillingVoided=The allocation is void. Historical shares are displayed but excluded from active invoicing.
 TrainingVoidBilling=Void allocation
+
+TrainingAttendancePickerHelp=Choose Record/edit for a participant. Date and time use the session timezone. Present with empty times attests the full slot; partial attendance requires both times. Clear times for absence or clearing a record.
+TrainingLateMinutes=Late minutes
+TrainingFullSlotAttestation=Full slot attested; no observed times
+TrainingEditAttendance=Record/edit
+TrainingAttendanceSaved=Attendance saved. Current record:
+TrainingAttendanceChangedAfterSave=Another change occurred after your save. The table shows the latest record.
+TrainingReloadAttendance=Reload and review attendance
+TrainingTimeOccurrence=Occurrence at clock change
+TrainingAutomaticTime=Automatic for unambiguous time
+TrainingTimeOccurrenceHelp=When clocks move back, a local time may occur twice. Choose the correct UTC occurrence for each time. Automatic selection is rejected for ambiguous times.
+TrainingAttendanceNonexistentTime=The time does not exist in the session timezone because of a clock change. Choose an existing time.
+TrainingAttendanceAmbiguousTime=The local time occurs twice. Choose the correct UTC occurrence.
