@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__.'/traininglocaltime.class.php';
 /** Normalize attested attendance, not access or workflow. */
 final class TrainingAttendanceRecord
 {
@@ -10,6 +11,11 @@ final class TrainingAttendanceRecord
         }
         $arrival = trim((string) ($input['arrival'] ?? ''));
         $departure = trim((string) ($input['departure'] ?? ''));
+        if (array_key_exists('arrival_local', $input) || array_key_exists('departure_local', $input)) {
+            if ($arrival !== '' || $departure !== '') { throw new InvalidArgumentException('TrainingInvalidAttendanceTimes'); }
+            $arrival = TrainingLocalTime::resolve((string) ($input['arrival_local'] ?? ''), $timezone, (string) ($input['arrival_offset'] ?? ''));
+            $departure = TrainingLocalTime::resolve((string) ($input['departure_local'] ?? ''), $timezone, (string) ($input['departure_offset'] ?? ''));
+        }
         $empty = array('status' => $status, 'arrival_utc' => null, 'departure_utc' => null, 'present_minutes' => null, 'late_minutes' => null);
         if (in_array($status, array('not_registered', 'absent', 'excused'), true)) {
             if ($arrival !== '' || $departure !== '') { throw new InvalidArgumentException('TrainingAbsentHasTimes'); }

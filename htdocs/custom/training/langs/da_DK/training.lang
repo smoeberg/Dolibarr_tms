@@ -129,3 +129,16 @@ TrainingBillingReasonRequired=En rettelse kræver en begrundelse (højst 2000 by
 
 TrainingBillingVoided=Fordelingen er tilbagekaldt. Historiske andele vises, men indgår ikke i aktiv fakturering.
 TrainingVoidBilling=Tilbagekald fordeling
+
+TrainingAttendancePickerHelp=Vælg Registrer/ret for en deltager. Dato og tid bruger holdets tidszone. Til stede med tomme tider attesterer hele blokken; delvist fremmøde kræver begge tider. Ved fravær/nulstilling skal tiderne tømmes.
+TrainingLateMinutes=Forsinkelsesminutter
+TrainingFullSlotAttestation=Hele blokken attesteret; ingen observerede tider
+TrainingEditAttendance=Registrer/ret
+TrainingAttendanceSaved=Registreringen er gemt. Aktuel registrering:
+TrainingAttendanceChangedAfterSave=En anden ændring er sket efter din registrering. Tabellen viser den nyeste registrering.
+TrainingReloadAttendance=Genindlæs og vurder registreringen
+TrainingTimeOccurrence=Forekomst ved sommertidsskift
+TrainingAutomaticTime=Automatisk ved entydig tid
+TrainingTimeOccurrenceHelp=Når klokken stilles tilbage, kan et klokkeslæt forekomme to gange. Vælg da den korrekte UTC-forekomst for hver tid. Automatisk valg afvises, hvis tiden er tvetydig.
+TrainingAttendanceNonexistentTime=Klokkeslættet findes ikke i holdets tidszone på grund af sommertidsskift. Vælg en eksisterende tid.
+TrainingAttendanceAmbiguousTime=Klokkeslættet forekommer to gange. Vælg den korrekte UTC-forekomst.

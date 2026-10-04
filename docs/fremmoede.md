@@ -27,7 +27,7 @@ Fremmøde registreres pr. tilmelding og undervisningsblok. Deltagerens navn komm
 - Dataændring og audit er i samme transaktion. Fejl i audit ruller ændringen tilbage.
 - Kontaktadgang og aktiv entity gælder for ark, historik og ændringer. Utilgængelige kontakters fremmøde vises ikke.
 
-`TrainingAttendanceService` er eneste skrivevej. UI har ingen selvstændig forretningslogik. Fremmøde findes via link på hver blok i holdkortet. Historik viser før/efter, begrundelse, tidspunkt og standardbruger-ID.
+`TrainingAttendanceService` er eneste skrivevej. UI har ingen selvstændig forretningslogik. Fremmøde findes via link på hver blok i holdkortet. Se [UI-opdateringen 0.4.1](fremmoede-ui.md) for den nye dato/tid-vælger og læsbare historik. Historik viser før/efter, begrundelse, tidspunkt og standardbruger-ID.
 
 ## Rettigheder
 
