@@ -26,16 +26,15 @@ jobs:
       - name: Package tooling and PHP drivers
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends python3 git libzip-dev
-          docker-php-ext-install mysqli zip
+          apt-get install -y --no-install-recommends python3 git libzip-dev libicu-dev libonig-dev
+          docker-php-ext-install mysqli zip mbstring intl
       - uses: actions/checkout@v4
         with:
           repository: Dolibarr/dolibarr
           ref: '24.0.2'
           path: .ci/dolibarr
           sparse-checkout: |
-            htdocs/core/modules
-            htdocs/install/mysql/tables
+            htdocs
       - name: Reproducible installable module
         run: python3 tests/package.py
       - name: Official Dolibarr module descriptor
@@ -49,3 +48,15 @@ jobs:
         env:
           TRAINING_TEST_MYSQL_HOST: mysql
           TRAINING_TEST_MYSQL_PASSWORD: training_test_only
+      - name: Clean official Dolibarr installation from shipped ZIP
+        run: python3 tests/native_install.py
+        env:
+          TRAINING_TEST_MYSQL_HOST: mysql
+          TRAINING_TEST_MYSQL_PASSWORD: training_test_only
+      - name: Native module activation and runtime lifecycle
+        run: php tests/native_runtime.php
+      - name: Native login and module HTTP pages
+        run: python3 tests/native_http.py
+      - name: Installer diagnostics
+        if: failure()
+        run: tail -c 12000 .ci/step*.log .ci/http.log || true
