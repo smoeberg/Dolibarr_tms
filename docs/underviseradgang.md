@@ -29,7 +29,7 @@ Underviseren bruger **Mine undervisningshold** i produkt/service-menuen eller `/
 
 **Giv ikke underviserrollen de globale `attendance/*`-rettigheder eller generel hold-/booking-/økonomisk adgang.** De eksisterende globale fremmøderettigheder er fortsat koordinatorrettigheder og kræver ingen tildeling. En underviser skal have både ownattendance-rettighed og aktiv tildeling; ingen af delene alene er nok. Rollen giver ikke adgang til standardkontakter/kunder, som Dolibarr ellers afviser.
 
-Standard `user` entity-scope kommer fra `getEntity('user')`, inklusive global entity 0 i UI-konteksten. API/servicekontekster bør levere den eksplicit tilladte user-scope til `TrainingAccess`; uden den er scope begrænset til aktiv entity. Kontakters og services' egne scopes er uændrede.
+Standard `user` entity-scope kommer uændret fra `getEntity('user')`; global entity 0 er kun tilladt, hvis Dolibarr inkluderer den i dette scope. API/servicekontekster bør levere den eksplicit tilladte user-scope til `TrainingAccess`; uden den er scope begrænset til aktiv entity. Kontakters og services' egne scopes er uændrede.
 
 ## Fjernelse, historik og samtidighed
 
