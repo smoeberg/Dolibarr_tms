@@ -1,4 +1,5 @@
 """HTTP smoke checks using native login, cookies and CSRF; no authentication bypass."""
+from html import unescape
 from html.parser import HTMLParser
 from http.cookiejar import CookieJar
 import json
@@ -61,7 +62,7 @@ with (repo / '.ci/http.log').open('w') as log:
         }
         for path, expected in paths.items():
             page = request(anonymous, path)
-            assert 'name="password"' not in page and expected in page, f'{path}: expected rendered content missing'
+            assert 'name="password"' not in page and expected in unescape(page), f'{path}: expected rendered content missing'
             print('OK: authenticated native HTTP page', path)
         outsider = build_opener(HTTPCookieProcessor(CookieJar()))
         page = request(outsider, f'/custom/training/attendance.php?id={fixture["session"]}&slot_id={fixture["slot"]}')

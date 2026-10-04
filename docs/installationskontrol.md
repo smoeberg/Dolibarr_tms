@@ -22,13 +22,14 @@ Testene kræver `CI=true` og placering i `.ci/dolibarr`; de er beregnet til CI's
 
 CI erstatter ikke kontrol af den konkrete server, dens installerede moduler, filrettigheder, PHP-konfiguration, MySQL-version og eventuelle ID-konflikter. Før første driftsbrug:
 
-1. Tag database- og filbackup, og registrér præcise Dolibarr-, PHP- og MySQL-versioner.
+1. Tag database- og filbackup, og registrér præcise Dolibarr-, PHP- og MySQL-versioner samt SQL mode og storage engine.
 2. Kontrollér det foreløbige modul-ID `504850` og rettigheds-ID'er `504851–504868` for konflikter.
 3. Upload ZIP via **Opsætning → Moduler/applikationer → Installer eksternt modul**. Kontrollér at den installeres i `htdocs/custom/training/`.
 4. Aktivér Training, kontrollér Services, Tredjeparter og Fakturaer samt kursus-/holdfaner på en standardservice.
 5. Giv en intern koordinator relevante Training- og standardrettigheder. Afprøv kursusversion, hold, navngiven tilmelding og fremmøde.
 6. Afprøv en intern underviser med egne-fremmøde-rettigheder og en aktiv holdtildeling. Kontrollér at andre hold er afvist og at tilbagekaldelse fjerner adgangen.
 7. Deaktivér/genaktivér Training, og kontrollér at data, historik og fremmøde er bevaret.
-8. Registrér resultat, dato, tester og fejl i issue #3. Gem eventuelle skærmbilleder uden personoplysninger.
+8. Hvis en tidligere version er installeret, afprøv opgradering i en kopi af installationen og kontrollér data og historik. CI-kontrollen ovenfor er en ren installation, ikke en opgraderingstest.
+9. Registrér resultat, dato, tester og fejl i issue #3. Gem eventuelle skærmbilleder uden personoplysninger.
 
 Issue #3 skal fortsat stå åbent, indtil målserverens kontrol er dokumenteret. Online checkout og betaling indgår endnu ikke i den leverede funktionalitet.
