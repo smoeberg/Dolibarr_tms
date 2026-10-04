@@ -73,6 +73,17 @@ final class TrainingStore
         // Current locking read after locking session. No stale COUNT snapshot.
         return count($this->rows('SELECT rowid FROM '.$this->table('enrollment').' WHERE entity='.$this->access->entity().' AND fk_session='.$id." AND status='confirmed'".($lock ? ' FOR UPDATE' : '')));
     }
+    public function decisionTime(): string {
+        // Server/database UTC, evaluated after obtaining the session mutex for writes.
+        return (string) $this->rows('SELECT UTC_TIMESTAMP() AS decision_utc')[0]->decision_utc;
+    }
+    public function capacity(int $id, bool $lock = false, ?string $at = null): array {
+        $at = $at ?? $this->decisionTime();
+        $confirmed = $this->occupied($id, $lock);
+        $holds = $this->rows('SELECT rowid, qty FROM '.$this->table('seat_hold').' WHERE entity='.$this->access->entity().' AND fk_session='.$id." AND status='active' AND expires_utc>".$this->text($at).($lock ? ' FOR UPDATE' : ''));
+        $reserved = 0; foreach ($holds as $hold) { $reserved += (int) $hold->qty; }
+        return array('confirmed'=>$confirmed, 'reserved'=>$reserved, 'occupied'=>$confirmed+$reserved, 'at'=>$at);
+    }
     public function audit(string $type, int $id, string $action, array $metadata): void {
         $this->query('INSERT INTO '.$this->table('audit').' (entity, object_type, fk_object, action, fk_user_actor, datec, metadata_json) VALUES ('.$this->access->entity().', '.$this->text($type).', '.$id.', '.$this->text($action).', '.$this->access->actor().', '.$this->now().', '.$this->text(json_encode($metadata, JSON_THROW_ON_ERROR)).')');
     }

@@ -164,3 +164,26 @@ TrainingTrainerReasonRequired=Tildeling eller fjernelse kræver begrundelse (hø
 TrainingTrainerConflict=Tildelingen er ændret af en anden. Genindlæs og vurder ændringen.
 TrainingTrainerInactive=Brugeren eller profilen er inaktiv eller ekstern og kan ikke få ny aktiv tildeling.
 TrainingTrainerAssignmentNotFound=Tildelingen findes ikke på dette hold.
+
+# Seat reservations 0.6.0
+TrainingReservations=Pladsreservationer
+TrainingReservationHelp=Internt koordinatorværktøj. Reservér navngivne deltagere i 15 minutter. Bekræftelse er administrativ godkendelse og siger intet om betaling. Udløbne reservationer kræver ny kapacitetskontrol.
+TrainingCapacitySummary=Bekræftede: %s · Reserverede: %s · Ledige: %s · Kapacitet: %s
+TrainingReserve15Minutes=Reservér valgte deltagere i 15 minutter
+TrainingReservationExpires=Udløber (holdets tidszone)
+TrainingReservationActive=Aktiv reservation
+TrainingReservationExpired=Udløbet
+TrainingReservationConverted=Bekræftet
+TrainingReservationReleased=Frigivet
+TrainingConfirmReservation=Godkend alle deltagere
+TrainingReleaseReservation=Frigiv reservation
+TrainingReservationEventReserved=Reservation oprettet
+TrainingReservationEventConverted=Deltagere bekræftet
+TrainingReservationEventReleased=Reservation frigivet
+TrainingInvalidReservation=Vælg 1–100 forskellige navngivne deltagere, en gyldig anmodningsnøgle og varighed.
+TrainingReservationNotFound=Reservationen findes ikke på dette hold.
+TrainingReservationKeyConflict=Anmodningsnøglen er allerede brugt med andre deltagere eller en anden varighed.
+TrainingParticipantReserved=En deltager har allerede en aktiv reservation på holdet. Brug reservationen til bekræftelse.
+TrainingParticipantAlreadyBooked=En deltager er allerede bekræftet på holdet.
+TrainingReservationReasonRequired=Angiv begrundelse for godkendelse eller frigivelse.
+TrainingReservationIntegrityError=Reservationens deltagere stemmer ikke; kontakt koordinatoren.

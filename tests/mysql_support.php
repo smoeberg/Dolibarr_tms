@@ -9,6 +9,7 @@ function verify(bool $ok, string $message): void {
 class MysqlTestDb {
     public mysqli $connection;
     public bool $failAudit = false;
+    public int $auditFailureCountdown = 0;
     public function __construct() {
         mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
         $host = getenv('TRAINING_TEST_MYSQL_HOST');
@@ -21,7 +22,9 @@ class MysqlTestDb {
     public function escape($text) { return $this->connection->real_escape_string($text); }
     public function idate($date) { return gmdate('Y-m-d H:i:s', $date); }
     public function query($sql) {
-        if ($this->failAudit && str_contains($sql, 'INSERT INTO tst_training_audit')) { return false; }
+        if (str_contains($sql, 'INSERT INTO tst_training_audit')) {
+            if ($this->failAudit || ($this->auditFailureCountdown > 0 && --$this->auditFailureCountdown === 0)) { return false; }
+        }
         return $this->connection->query($sql);
     }
     public function fetch_object($result) { return $result->fetch_object(); }

@@ -14,7 +14,7 @@ class modTraining extends DolibarrModules
         $this->module_position = '90';
         $this->name = 'Training';
         $this->description = 'ModuleTrainingDesc';
-        $this->version = '0.5.0';
+        $this->version = '0.6.0';
         $this->const_name = 'MAIN_MODULE_TRAINING';
         $this->picto = 'service';
         $this->editor_name = 'Dolibarr TMS';

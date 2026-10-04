@@ -2,7 +2,7 @@
 require_once __DIR__.'/mysql_support.php';
 $db = new MysqlTestDb();
 // These names exist only in the dedicated training_test schema.
-foreach (array('training_trainer_assignment','training_trainer','user','training_billing_allocation','training_billing_line','facturedet','facture','training_attendance','training_enrollment','training_session_slot','training_session','training_learner','socpeople','societe_commerciaux','societe') as $table) { $db->query('DROP TABLE IF EXISTS tst_'.$table); }
+foreach (array('training_seat_member','training_seat_hold','training_trainer_assignment','training_trainer','user','training_billing_allocation','training_billing_line','facturedet','facture','training_attendance','training_enrollment','training_session_slot','training_session','training_learner','socpeople','societe_commerciaux','societe') as $table) { $db->query('DROP TABLE IF EXISTS tst_'.$table); }
 $db->query('DROP TABLE IF EXISTS tst_training_course_version');
 $db->query('DROP TABLE IF EXISTS tst_training_course_profile');
 $db->query('DROP TABLE IF EXISTS tst_training_audit');
@@ -79,3 +79,5 @@ require_once __DIR__.'/billing_mysql.php';
 require_once __DIR__.'/attendance_picker_mysql.php';
 
 require_once __DIR__.'/trainer_mysql.php';
+
+require_once __DIR__.'/seat_mysql.php';
