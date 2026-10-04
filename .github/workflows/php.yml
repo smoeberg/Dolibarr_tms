@@ -55,6 +55,8 @@ jobs:
           TRAINING_TEST_MYSQL_PASSWORD: training_test_only
       - name: Native module activation and runtime lifecycle
         run: php tests/native_runtime.php
+      - name: Native login and module HTTP pages
+        run: python3 tests/native_http.py
       - name: Installer diagnostics
         if: failure()
-        run: tail -c 12000 .ci/step*.log || true
+        run: tail -c 12000 .ci/step*.log .ci/http.log || true

@@ -63,3 +63,5 @@ Estimater og driftsmål i arkitekturen er foreløbige. Dokumentationen er et udv
 
 
 Udviklingsarbejdsgangen er beskrevet i [CONTRIBUTING.md](CONTRIBUTING.md): en branch pr. opgave og pull request før merge til main.
+
+Installationskontrollen og den resterende målservertest er beskrevet i [docs/installationskontrol.md](docs/installationskontrol.md).
