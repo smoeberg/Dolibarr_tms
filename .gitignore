@@ -1,0 +1,4 @@
+.ci/dolibarr
+.ci/documents
+.ci/*.log
+.ci/*.json
