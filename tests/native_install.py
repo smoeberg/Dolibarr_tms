@@ -1,5 +1,4 @@
 """Install only into the disposable official checkout and training_test CI database."""
-import json
 import os
 from pathlib import Path
 import subprocess

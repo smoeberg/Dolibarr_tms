@@ -8,6 +8,7 @@ require_once DOL_DOCUMENT_ROOT.'/contact/class/contact.class.php';
 require_once DOL_DOCUMENT_ROOT.'/custom/training/lib/ui.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/custom/training/class/trainingcatalogservice.class.php';
 require_once DOL_DOCUMENT_ROOT.'/custom/training/class/trainingattendanceservice.class.php';
+require_once DOL_DOCUMENT_ROOT.'/custom/training/class/trainingtrainerservice.class.php';
 function nativeCheck($ok, string $message): void {
     if (!$ok) { throw new RuntimeException($message); }
     echo 'OK: '.$message.PHP_EOL;
@@ -52,6 +53,8 @@ $scheduling->changeStatus($session,'open');
 $enrollment=(new TrainingEnrollmentService($store))->confirm($session,$contactId);
 $slot=(int) $scheduling->detail($session)['slots'][0]->rowid;
 $attendance=new TrainingAttendanceService($store);
+(new TrainingTrainerService($store))->change($session,(int) $user->id,0,'active','Native installation test');
+nativeCheck(count($attendance->mySessions()) === 1,'Native internal user assignment and own-session listing');
 $attendance->record($session,$slot,$enrollment,0,array('status'=>'present'));
 nativeCheck((int) $attendance->sheet($session,$slot)['rows'][0]->present_minutes === 60,'Native loaders, booking and attendance round trip');
 $tables=array('training_course_profile','training_course_version','training_audit','training_session','training_session_slot','training_learner','training_enrollment','training_attendance','training_billing_line','training_billing_allocation','training_trainer','training_trainer_assignment');

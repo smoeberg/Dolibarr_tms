@@ -54,9 +54,10 @@ with (repo / '.ci/http.log').open('w') as log:
             f'/custom/training/sessions.php?product_id={fixture["product"]}': 'NATIVE-CI',
             f'/custom/training/session.php?id={fixture["session"]}': 'NATIVE-CI',
             f'/custom/training/attendance.php?id={fixture["session"]}&slot_id={fixture["slot"]}': 'Participant',
-            f'/custom/training/trainers.php?id={fixture["session"]}': 'Native installation',
-            f'/custom/training/billing.php?id={fixture["session"]}': 'Native installation',
-            '/custom/training/myattendance.php': '</html>',
+            f'/custom/training/trainers.php?id={fixture["session"]}': 'NATIVE-CI',
+            f'/custom/training/billing.php?id={fixture["session"]}': 'NATIVE-CI',
+            '/custom/training/myattendance.php': 'NATIVE-CI',
+            f'/product/card.php?id={fixture["product"]}': f'/custom/training/course.php?id={fixture["product"]}',
         }
         for path, expected in paths.items():
             page = request(anonymous, path)
