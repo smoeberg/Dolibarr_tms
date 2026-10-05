@@ -155,14 +155,14 @@ verify($scheduling->detail($statusTestId)['session']->status === 'open', 'closed
 
 $scheduling->changeStatus($statusTestId, 'completed');
 verify($scheduling->detail($statusTestId)['session']->status === 'completed', 'open to completed transition works');
-$scheduling->changeStatus($statusTestId, 'open');
-verify($scheduling->detail($statusTestId)['session']->status === 'open', 'completed to open is not allowed - wait this should fail');
+bookingReject(fn() => $scheduling->changeStatus($statusTestId, 'open'), 'TrainingInvalidTransition');
+verify($scheduling->detail($statusTestId)['session']->status === 'completed', 'completed to open is rejected');
 
 // Test all valid transitions from closed
 $scheduling->changeStatus($statusTestId, 'closed');
 $scheduling->changeStatus($statusTestId, 'completed');
 verify($scheduling->detail($statusTestId)['session']->status === 'completed', 'closed to completed transition works');
-$scheduling->changeStatus($statusTestId, 'open');
+bookingReject(fn() => $scheduling->changeStatus($statusTestId, 'open'), 'TrainingInvalidTransition');
 $scheduling->changeStatus($statusTestId, 'closed');
 $scheduling->changeStatus($statusTestId, 'cancelled');
 verify($scheduling->detail($statusTestId)['session']->status === 'cancelled', 'closed to cancelled transition works');
