@@ -84,4 +84,6 @@ require_once __DIR__.'/seat_mysql.php';
 
 require_once __DIR__.'/report_mysql.php';
 
+require_once __DIR__.'/native_mapping_mysql.php';
+
 require_once __DIR__.'/commercial_mysql.php';
