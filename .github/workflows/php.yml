@@ -49,6 +49,7 @@ jobs:
           cd "$GITHUB_WORKSPACE"
           set -x
           pwd
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git rev-parse --git-dir 2>/dev/null || {
             git init -q .
             git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
