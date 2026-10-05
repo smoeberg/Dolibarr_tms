@@ -43,10 +43,10 @@ jobs:
           name: current-module-archive
           path: /tmp/module_training.zip
 
-      - name: Refresh reproducible module archive
+      - name: Verify committed reproducible module archive
         run: |
-          cp /tmp/module_training.zip dist/module_training-0.8.0.zip
-          echo "Using the freshly built archive for this CI run"
+          test -f dist/module_training-0.8.0.zip
+          echo "Testing the committed shipped archive; CI will not rewrite it"
 
       - name: Reproducible installable module
         run: python3 tests/package.py
