@@ -79,8 +79,8 @@ final class TrainingOutboxService
         
         $this->store->query(
             'INSERT INTO '.$this->store->table('outbox').
-            ' (entity, object_type, fk_object, action, recipient_type, recipient_id, '
-            'recipient_email, subject, body_text, body_html, metadata_json, '
+            ' (entity, object_type, fk_object, action, recipient_type, recipient_id, '.
+            'recipient_email, subject, body_text, body_html, metadata_json, '.
             'status, attempts, scheduled_at, datec, fk_user_author, changed_at, fk_user_modifier) VALUES ('
             .$entity.', '
             .$this->store->text($objectType).', '.$objectId.', '
@@ -125,7 +125,7 @@ final class TrainingOutboxService
             'SELECT * FROM '.$this->store->table('outbox').
             ' WHERE entity='.$entity.
             ' AND status='.$this->store->text(self::STATUS_PENDING).
-            ' AND (scheduled_at IS NULL OR scheduled_at <= '.$this->store->text($now).')'
+            ' AND (scheduled_at IS NULL OR scheduled_at <= '.$this->store->text($now).')'.
             ' ORDER BY datec ASC, rowid ASC'.
             ' LIMIT '.$limit.' FOR UPDATE'
         );
@@ -175,7 +175,7 @@ final class TrainingOutboxService
             ' WHERE entity='.$entity.
             ' AND status='.$this->store->text(self::STATUS_FAILED).
             ' AND attempts < '.self::MAX_ATTEMPTS.
-            ' AND (last_attempt IS NULL OR last_attempt <= '.$this->store->text($this->calculateNextRetryTime($now)).')'
+            ' AND (last_attempt IS NULL OR last_attempt <= '.$this->store->text($this->calculateNextRetryTime($now)).')'.
             ' ORDER BY datec ASC, rowid ASC'.
             ' LIMIT '.$limit.' FOR UPDATE'
         );

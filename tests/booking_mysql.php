@@ -22,6 +22,10 @@ for ($i=0;$i<2;$i++) {
     $db->connection->multi_query($seatSchema);
     do { if ($result=$db->connection->store_result()) { $result->free(); } } while ($db->connection->more_results() && $db->connection->next_result());
 }
+// confirm() writes an enrollment price snapshot, so the price table must exist.
+$priceSchema=str_replace('llx_', 'tst_',file_get_contents(__DIR__.'/../htdocs/custom/training/sql/llx_training_zprice.sql'));
+$db->connection->multi_query($priceSchema);
+do { if ($result=$db->connection->store_result()) { $result->free(); } } while ($db->connection->more_results() && $db->connection->next_result());
 $store = bookingStore($db);
 $scheduling = new TrainingSchedulingService($store);
 $enrollments = new TrainingEnrollmentService($store);
@@ -151,14 +155,14 @@ verify($scheduling->detail($statusTestId)['session']->status === 'open', 'closed
 
 $scheduling->changeStatus($statusTestId, 'completed');
 verify($scheduling->detail($statusTestId)['session']->status === 'completed', 'open to completed transition works');
-$scheduling->changeStatus($statusTestId, 'open');
-verify($scheduling->detail($statusTestId)['session']->status === 'open', 'completed to open is not allowed - wait this should fail');
+bookingReject(fn() => $scheduling->changeStatus($statusTestId, 'open'), 'TrainingInvalidTransition');
+verify($scheduling->detail($statusTestId)['session']->status === 'completed', 'completed to open is rejected');
 
 // Test all valid transitions from closed
 $scheduling->changeStatus($statusTestId, 'closed');
 $scheduling->changeStatus($statusTestId, 'completed');
 verify($scheduling->detail($statusTestId)['session']->status === 'completed', 'closed to completed transition works');
-$scheduling->changeStatus($statusTestId, 'open');
+bookingReject(fn() => $scheduling->changeStatus($statusTestId, 'open'), 'TrainingInvalidTransition');
 $scheduling->changeStatus($statusTestId, 'closed');
 $scheduling->changeStatus($statusTestId, 'cancelled');
 verify($scheduling->detail($statusTestId)['session']->status === 'cancelled', 'closed to cancelled transition works');

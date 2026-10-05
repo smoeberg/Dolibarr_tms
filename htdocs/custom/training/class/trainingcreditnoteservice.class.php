@@ -57,8 +57,8 @@ final class TrainingCreditNoteService
      */
     private function allocatedCreditNotes(int $enrollmentId): array {
         return $this->s->rows(
-            'SELECT ca.rowid, ca.fk_facture, ca.amount, ca.currency, ca.datec, '
-            'cs.invoice_ref, cs.date_credit '
+            'SELECT ca.rowid, ca.fk_facture, ca.amount, ca.currency, ca.datec, '.
+            'cs.invoice_ref, cs.date_credit '.
             'FROM '.$this->s->table('creditnote_allocation').' ca '.
             'LEFT JOIN '.$this->s->table('creditnote_snapshot').' cs ON cs.fk_allocation = ca.rowid AND cs.entity = ca.entity '.
             'WHERE ca.entity='.$this->s->access->entity().
@@ -432,7 +432,7 @@ final class TrainingCreditNoteService
             // Update balance adjustment to reflect void
             $this->s->query(
                 'UPDATE '.$this->s->table('creditnote_balance').
-                ' SET adjustment_type=\'credit_voided\' '
+                ' SET adjustment_type=\'credit_voided\' '.
                 ' WHERE fk_allocation='.$allocationId.' AND entity='.$this->s->access->entity()
             );
             
@@ -460,9 +460,9 @@ final class TrainingCreditNoteService
         $this->s->session($sessionId);
         
         $rows = $this->s->rows(
-            'SELECT ca.rowid, ca.fk_facture, ca.fk_facturedet, ca.fk_enrollment, ca.amount, ca.currency, ca.datec, '
-            'cs.invoice_ref, cs.date_credit, ca.status, ca.revision, '
-            'f.ref as credit_note_ref, f.total_ttc as credit_note_total '
+            'SELECT ca.rowid, ca.fk_facture, ca.fk_facturedet, ca.fk_enrollment, ca.amount, ca.currency, ca.datec, '.
+            'cs.invoice_ref, cs.date_credit, ca.status, ca.revision, '.
+            'f.ref as credit_note_ref, f.total_ttc as credit_note_total '.
             'FROM '.$this->s->table('creditnote_allocation').' ca '.
             'LEFT JOIN '.$this->s->table('creditnote_snapshot').' cs ON cs.fk_allocation = ca.rowid AND cs.entity = ca.entity '.
             'LEFT JOIN '.$this->s->db->prefix().'facture f ON f.rowid = ca.fk_facture '.
@@ -483,8 +483,8 @@ final class TrainingCreditNoteService
         $this->enrollment($sessionId, $enrollmentId);
         
         return $this->s->rows(
-            'SELECT ca.rowid, ca.fk_facture, ca.fk_facturedet, ca.amount, ca.currency, ca.datec, '
-            'cs.invoice_ref, cs.date_credit, ca.status, ca.revision '
+            'SELECT ca.rowid, ca.fk_facture, ca.fk_facturedet, ca.amount, ca.currency, ca.datec, '.
+            'cs.invoice_ref, cs.date_credit, ca.status, ca.revision '.
             'FROM '.$this->s->table('creditnote_allocation').' ca '.
             'LEFT JOIN '.$this->s->table('creditnote_snapshot').' cs ON cs.fk_allocation = ca.rowid AND cs.entity = ca.entity '.
             'WHERE ca.entity='.$this->s->access->entity().
@@ -501,8 +501,8 @@ final class TrainingCreditNoteService
         $this->enrollment($sessionId, $enrollmentId);
         
         return $this->s->rows(
-            'SELECT cb.rowid, cb.fk_allocation, cb.adjustment_type, cb.amount, cb.currency, cb.datec, '
-            'ca.fk_facture, cs.invoice_ref '
+            'SELECT cb.rowid, cb.fk_allocation, cb.adjustment_type, cb.amount, cb.currency, cb.datec, '.
+            'ca.fk_facture, cs.invoice_ref '.
             'FROM '.$this->s->table('creditnote_balance').' cb '.
             'JOIN '.$this->s->table('creditnote_allocation').' ca ON ca.rowid = cb.fk_allocation AND ca.entity = cb.entity '.
             'LEFT JOIN '.$this->s->table('creditnote_snapshot').' cs ON cs.fk_allocation = ca.rowid AND cs.entity = ca.entity '.

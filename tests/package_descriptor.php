@@ -11,7 +11,7 @@ try {
     if (!$zip->extractTo($temp)) { throw new RuntimeException('Extraction failed'); }
     require_once $temp.'/training/core/modules/modTraining.class.php';
     $descriptor = new modTraining(null);
-    if (!($descriptor instanceof DolibarrModules) || $descriptor->version !== '0.8.0' || $descriptor->const_name !== 'MAIN_MODULE_TRAINING' || $descriptor->need_dolibarr_version !== array(24,0,2) || count($descriptor->rights) !== 21) {
+    if (!($descriptor instanceof DolibarrModules) || $descriptor->version !== '0.8.0' || $descriptor->const_name !== 'MAIN_MODULE_TRAINING' || $descriptor->need_dolibarr_version !== array(24,0,2) || count($descriptor->rights) !== 24) {
         throw new RuntimeException('Invalid official module descriptor');
     }
     echo 'PASS: ZIP extraction and packaged descriptor with real Dolibarr 24.0.2 parent class'.PHP_EOL;

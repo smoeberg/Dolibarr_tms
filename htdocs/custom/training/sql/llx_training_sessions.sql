@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS llx_training_enrollment (
  fk_user_modifier integer NOT NULL,
  cancellation_reason text NULL,
  PRIMARY KEY (rowid),
+ UNIQUE KEY uk_training_enrollment_entity_id (entity, rowid),
  UNIQUE KEY uk_training_enrollment_learner (entity, fk_session, fk_learner),
  KEY idx_training_enrollment_capacity (entity, fk_session, status),
  CONSTRAINT fk_llx_training_enrollment_session FOREIGN KEY (entity, fk_session) REFERENCES llx_training_session(entity, rowid),

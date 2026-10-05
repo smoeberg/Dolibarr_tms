@@ -31,7 +31,7 @@ foreach (array('training','service','societe','facture') as $module) {
 }
 nativeCheck(nativeCount('training_course_profile') === 0, 'Clean Training schema');
 $r=$db->query("SELECT COUNT(*) AS n FROM ".$db->prefix()."rights_def WHERE module='training'");
-nativeCheck((int) $db->fetch_object($r)->n === 21, 'All 21 native permission definitions');
+nativeCheck((int) $db->fetch_object($r)->n === 24, 'All 24 native permission definitions (incl. B1 checkout rights, 504872-504874)');
 $r=$db->query("SELECT COUNT(*) AS n FROM ".$db->prefix()."menu WHERE module='training'");
 nativeCheck((int) $db->fetch_object($r)->n === 2, 'Native Training menus registered once');
 $product=new Product($db);

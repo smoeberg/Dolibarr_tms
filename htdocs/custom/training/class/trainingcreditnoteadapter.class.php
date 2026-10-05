@@ -27,9 +27,9 @@ final class TrainingCreditNoteAdapter
         $this->s->access->requireInvoiceRead();
         
         $headers = $this->s->rows(
-            'SELECT rowid, entity, ref, type, fk_soc, fk_statut, multicurrency_code, '
-            'CAST(multicurrency_tx AS DECIMAL(24,8)) AS multicurrency_tx '
-            'FROM '.$this->s->db->prefix().'facture '
+            'SELECT rowid, entity, ref, type, fk_soc, fk_statut, multicurrency_code, '.
+            'CAST(multicurrency_tx AS DECIMAL(24,8)) AS multicurrency_tx '.
+            'FROM '.$this->s->db->prefix().'facture '.
             'WHERE rowid='.$invoiceId.' AND entity='.$this->s->access->entity().
             ($lock ? ' FOR UPDATE' : '')
         );
@@ -47,17 +47,17 @@ final class TrainingCreditNoteAdapter
         }
         
         $lines = $this->s->rows(
-            'SELECT rowid, fk_facture, fk_product, product_type, description, '
-            'CAST(qty AS DECIMAL(24,8)) AS qty, '
-            'CAST(subprice AS DECIMAL(24,8)) AS subprice, '
-            'CAST(remise_percent AS DECIMAL(16,8)) AS remise_percent, '
-            'CAST(tva_tx AS DECIMAL(16,8)) AS tva_tx, '
-            'CAST(total_ht AS DECIMAL(24,8)) AS total_ht, '
-            'CAST(total_tva AS DECIMAL(24,8)) AS total_tva, '
-            'CAST(total_localtax1 AS DECIMAL(24,8)) AS total_localtax1, '
-            'CAST(total_localtax2 AS DECIMAL(24,8)) AS total_localtax2, '
-            'CAST(total_ttc AS DECIMAL(24,8)) AS total_ttc '
-            'FROM '.$this->s->db->prefix().'facturedet '
+            'SELECT rowid, fk_facture, fk_product, product_type, description, '.
+            'CAST(qty AS DECIMAL(24,8)) AS qty, '.
+            'CAST(subprice AS DECIMAL(24,8)) AS subprice, '.
+            'CAST(remise_percent AS DECIMAL(16,8)) AS remise_percent, '.
+            'CAST(tva_tx AS DECIMAL(16,8)) AS tva_tx, '.
+            'CAST(total_ht AS DECIMAL(24,8)) AS total_ht, '.
+            'CAST(total_tva AS DECIMAL(24,8)) AS total_tva, '.
+            'CAST(total_localtax1 AS DECIMAL(24,8)) AS total_localtax1, '.
+            'CAST(total_localtax2 AS DECIMAL(24,8)) AS total_localtax2, '.
+            'CAST(total_ttc AS DECIMAL(24,8)) AS total_ttc '.
+            'FROM '.$this->s->db->prefix().'facturedet '.
             'WHERE rowid='.$lineId.' AND fk_facture='.$invoiceId.
             ($lock ? ' FOR UPDATE' : '')
         );
@@ -105,12 +105,12 @@ final class TrainingCreditNoteAdapter
         $this->s->access->requireInvoiceRead();
         
         $rows = $this->s->rows(
-            'SELECT rowid, entity, ref, type, fk_soc, fk_statut, datef as date_credit, '
-            'CAST(total_ht AS DECIMAL(24,8)) AS total_ht, '
-            'CAST(total_tva AS DECIMAL(24,8)) AS total_tva, '
-            'CAST(total_ttc AS DECIMAL(24,8)) AS total_ttc, '
-            'multicurrency_code, CAST(multicurrency_tx AS DECIMAL(24,8)) AS multicurrency_tx '
-            'FROM '.$this->s->db->prefix().'facture '
+            'SELECT rowid, entity, ref, type, fk_soc, fk_statut, datef as date_credit, '.
+            'CAST(total_ht AS DECIMAL(24,8)) AS total_ht, '.
+            'CAST(total_tva AS DECIMAL(24,8)) AS total_tva, '.
+            'CAST(total_ttc AS DECIMAL(24,8)) AS total_ttc, '.
+            'multicurrency_code, CAST(multicurrency_tx AS DECIMAL(24,8)) AS multicurrency_tx '.
+            'FROM '.$this->s->db->prefix().'facture '.
             'WHERE rowid='.$invoiceId.' AND entity='.$this->s->access->entity().
             ($lock ? ' FOR UPDATE' : '')
         );
@@ -144,7 +144,7 @@ final class TrainingCreditNoteAdapter
         $this->s->access->requireInvoiceRead();
         
         $rows = $this->s->rows(
-            'SELECT type FROM '.$this->s->db->prefix().'facture '
+            'SELECT type FROM '.$this->s->db->prefix().'facture '.
             'WHERE rowid='.$invoiceId.' AND entity='.$this->s->access->entity()
         );
         
@@ -159,14 +159,14 @@ final class TrainingCreditNoteAdapter
         $this->s->access->requireBillingCustomer($socId, $this->s->db);
         
         $rows = $this->s->rows(
-            'SELECT rowid, ref, datef as date_credit, '
-            'CAST(total_ttc AS DECIMAL(24,8)) AS total_ttc, '
-            'multicurrency_code '
-            'FROM '.$this->s->db->prefix().'facture '
+            'SELECT rowid, ref, datef as date_credit, '.
+            'CAST(total_ttc AS DECIMAL(24,8)) AS total_ttc, '.
+            'multicurrency_code '.
+            'FROM '.$this->s->db->prefix().'facture '.
             'WHERE entity='.$this->s->access->entity().
             ' AND fk_soc='.$socId.
-            ' AND type=2'
-            ' AND fk_statut IN (1,2)'
+            ' AND type=2'.
+            ' AND fk_statut IN (1,2)'.
             ' ORDER BY datef DESC'
         );
         
