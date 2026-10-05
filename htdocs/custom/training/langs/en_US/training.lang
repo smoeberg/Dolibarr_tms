@@ -340,3 +340,4 @@ TrainingPaymentRef=Payment reference
 TrainingAdjust=Adjust
 TrainingRemove=Remove
 TrainingPaymentAmountHelp=Enter amount (e.g., 100.00 or 100)
+TrainingSyncDolibarr=Sync with Dolibarr
