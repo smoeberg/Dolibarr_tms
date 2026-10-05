@@ -45,6 +45,8 @@ jobs:
 
       - name: Refresh committed reproducible archive
         run: |
+          unset GIT_DIR GIT_WORK_TREE
+          cd "$GITHUB_WORKSPACE"
           cp /tmp/module_training.zip dist/module_training-0.8.0.zip
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
