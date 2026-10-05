@@ -60,7 +60,9 @@ class modTraining extends DolibarrModules
         }
         $result = $this->_load_tables('/training/sql/');
         if ($result <= 0) {
-            $this->error = 'Training schema installation failed; module activation was stopped.';
+            $dbError = method_exists($this->db, 'lasterror') ? $this->db->lasterror() : '';
+            $dbCode = method_exists($this->db, 'errno') ? $this->db->errno() : '';
+            $this->error = 'Training schema installation failed; module activation was stopped.'.($dbCode !== '' || $dbError !== '' ? ' DB['.$dbCode.']: '.$dbError : '');
             return -1;
         }
         return $this->_init(array(), $options);

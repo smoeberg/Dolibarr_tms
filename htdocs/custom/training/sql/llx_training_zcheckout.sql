@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS llx_training_checkout_participant (
     CONSTRAINT fk_llx_training_checkout_participant_session FOREIGN KEY (entity, fk_checkout_session) REFERENCES llx_training_checkout_session(entity, rowid) ON DELETE CASCADE,
     CONSTRAINT fk_llx_training_checkout_participant_enrollment FOREIGN KEY (fk_enrollment) REFERENCES llx_training_enrollment(rowid) ON DELETE SET NULL,
     CONSTRAINT fk_llx_training_checkout_participant_contact FOREIGN KEY (fk_contact) REFERENCES llx_socpeople(rowid),
-    CONSTRAINT fk_llx_training_checkout_participant_learner FOREIGN KEY (entity, fk_learner) REFERENCES llx_training_learner(entity, rowid) ON DELETE SET NULL
+    CONSTRAINT fk_llx_training_checkout_participant_learner FOREIGN KEY (entity, fk_learner) REFERENCES llx_training_learner(entity, rowid)
 ) ENGINE=InnoDB;
 
 -- Checkout payment: payment information for a checkout session
@@ -116,8 +116,7 @@ CREATE TABLE IF NOT EXISTS llx_training_webhook_event (
     KEY idx_training_webhook_event_type (entity, event_type),
     KEY idx_training_webhook_event_object (entity, stripe_object_type, stripe_object_id),
     KEY idx_training_webhook_event_processed (entity, processed),
-    KEY idx_training_webhook_event_datec (entity, datec),
-    CONSTRAINT fk_llx_training_webhook_event_entity FOREIGN KEY (entity) REFERENCES llx_entity(rowid)
+    KEY idx_training_webhook_event_datec (entity, datec)
 ) ENGINE=InnoDB;
 
 -- Outbox: async processing queue for emails and other notifications

@@ -43,30 +43,10 @@ jobs:
           name: current-module-archive
           path: /tmp/module_training.zip
 
-      - name: Refresh committed reproducible archive
+      - name: Refresh reproducible module archive
         run: |
-          unset GIT_DIR GIT_WORK_TREE
-          cd "$GITHUB_WORKSPACE"
-          set -x
-          pwd
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          git rev-parse --git-dir 2>/dev/null || {
-            git init -q .
-            git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
-            git fetch -q --depth 1 origin "$GITHUB_REF_NAME"
-            git symbolic-ref HEAD "refs/heads/$GITHUB_REF_NAME"
-            git reset -q --hard FETCH_HEAD
-          }
           cp /tmp/module_training.zip dist/module_training-0.8.0.zip
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add dist/module_training-0.8.0.zip
-          if git diff --cached --quiet; then
-            echo "Committed archive already matches source"
-          else
-            git commit -m "chore: refresh reproducible module archive"
-            git push origin HEAD
-          fi
+          echo "Using the freshly built archive for this CI run"
 
       - name: Reproducible installable module
         run: python3 tests/package.py
