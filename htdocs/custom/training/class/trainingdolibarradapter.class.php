@@ -1,6 +1,16 @@
 <?php
 /** Native Dolibarr projections. Never write directly to Dolibarr-owned tables. */
-final class TrainingDolibarrAdapter
+interface TrainingDolibarrGateway
+{
+    public function project(int $id);
+    public function createProject(string $ref, string $title, string $description, ?DateTimeImmutable $start, ?DateTimeImmutable $end);
+    public function updateProject($object, string $title, string $description, ?DateTimeImmutable $start, ?DateTimeImmutable $end): void;
+    public function action(int $id);
+    public function createAction(string $label, DateTimeImmutable $start, DateTimeImmutable $end, int $projectId);
+    public function updateAction($object, string $label, DateTimeImmutable $start, DateTimeImmutable $end, int $projectId): void;
+}
+
+final class TrainingDolibarrAdapter implements TrainingDolibarrGateway
 {
     private $db;
     private $user;
