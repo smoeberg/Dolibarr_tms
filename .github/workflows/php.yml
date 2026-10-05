@@ -46,12 +46,12 @@ jobs:
       - name: Refresh committed reproducible archive
         run: |
           cp /tmp/module_training.zip dist/module_training-0.8.0.zip
-          if git diff --quiet -- dist/module_training-0.8.0.zip; then
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dist/module_training-0.8.0.zip
+          if git diff --cached --quiet; then
             echo "Committed archive already matches source"
           else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add dist/module_training-0.8.0.zip
             git commit -m "chore: refresh reproducible module archive"
             git push
           fi
