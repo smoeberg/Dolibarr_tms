@@ -372,7 +372,7 @@ function showParticipantForm(TrainingAccess $access, TrainingStore $store, int $
         print '        <h3>Participant \' + (count + 1) + \'</h3>';
         
         foreach ($participantFields as $field => $label) {
-            print '        <p><label>'.$langs->trans($label).' <input type="text" name="participants['.'+count+']['.$field.']" required></label></p>';
+            print '        <p><label>'.$langs->trans($label).' <input type="text" name="participants[\'+count+\']['.$field.']" required></label></p>';
         }
         
         print '        <button type="button" class="removeParticipant button" data-index="\' + count + \'">Remove</button>';
