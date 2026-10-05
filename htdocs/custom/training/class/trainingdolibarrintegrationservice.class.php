@@ -5,9 +5,9 @@ require_once __DIR__.'/trainingdolibarradapter.class.php';
 final class TrainingDolibarrIntegrationService
 {
     private TrainingStore $s;
-    private TrainingDolibarrAdapter $native;
+    private TrainingDolibarrGateway $native;
 
-    public function __construct(TrainingStore $store, ?TrainingDolibarrAdapter $native = null)
+    public function __construct(TrainingStore $store, ?TrainingDolibarrGateway $native = null)
     {
         $this->s = $store;
         $this->native = $native ?? new TrainingDolibarrAdapter($store->db, $this->actorUser(), $store->access->entity());
@@ -40,6 +40,19 @@ final class TrainingDolibarrIntegrationService
             $this->s->text($identity).','.$this->s->now().','.$this->s->access->actor().','.$this->s->access->actor().')');
     }
 
+    private function lock(string $identity): void
+    {
+        $key = substr($identity, 0, 64);
+        $rows = $this->s->rows('SELECT GET_LOCK('.$this->s->text($key).', 15) AS acquired');
+        if (!$rows || (int)$rows[0]->acquired !== 1) { throw new RuntimeException('TrainingNativeSyncBusy'); }
+    }
+
+    private function unlock(string $identity): void
+    {
+        $key = substr($identity, 0, 64);
+        $this->s->query('SELECT RELEASE_LOCK('.$this->s->text($key).')');
+    }
+
     private function mapping(string $sourceType, int $sourceId, string $targetType): ?int
     {
         $rows=$this->s->rows('SELECT fk_target FROM '.$this->s->table('native_link').
@@ -63,7 +76,15 @@ final class TrainingDolibarrIntegrationService
         if (!function_exists('isModEnabled') || !isModEnabled('project')) {
             throw new RuntimeException('TrainingProjectModuleRequired');
         }
-        return $this->s->transaction(function() use ($sessionId) {
+        $identity='training:session:'.$this->s->access->entity().':'.$sessionId.':project';
+        $this->lock($identity);
+        try {
+            return $this->syncSessionLocked($sessionId, $identity);
+        } finally { $this->unlock($identity); }
+    }
+
+    private function syncSessionLocked(int $sessionId, string $identity): int
+    {
             $session=$this->s->session($sessionId,true);
             $slots=$this->s->rows('SELECT * FROM '.$this->s->table('session_slot').' WHERE entity='.$this->s->access->entity().' AND fk_session='.$sessionId.' ORDER BY position');
             $start=$slots ? new DateTimeImmutable($slots[0]->start_utc,new DateTimeZone('UTC')) : null;
@@ -79,7 +100,6 @@ final class TrainingDolibarrIntegrationService
             }
             $this->s->audit('session',$sessionId,'dolibarr_project_synced',array('project_id'=>$projectId));
             return $projectId;
-        });
     }
 
     public function syncSlot(int $sessionId, int $slotId): int
@@ -88,12 +108,21 @@ final class TrainingDolibarrIntegrationService
         if (!function_exists('isModEnabled') || !isModEnabled('agenda')) {
             throw new RuntimeException('TrainingAgendaModuleRequired');
         }
-        return $this->s->transaction(function() use ($sessionId,$slotId) {
+        $identity='training:session_slot:'.$this->s->access->entity().':'.$slotId.':actioncomm';
+        $this->lock($identity);
+        try {
+            return $this->syncSlotLocked($sessionId, $slotId, $identity);
+        } finally { $this->unlock($identity); }
+    }
+
+    private function syncSlotLocked(int $sessionId, int $slotId, string $identity): int
+    {
             $session=$this->s->session($sessionId,true);
             $slots=$this->s->rows('SELECT * FROM '.$this->s->table('session_slot').' WHERE rowid='.$slotId.' AND entity='.$this->s->access->entity().' AND fk_session='.$sessionId);
             if (!$slots) { throw new RuntimeException('TrainingSessionSlotNotFound'); }
             $slot=$slots[0];
-            $projectId=$this->mapping('session',$sessionId,'project') ?? $this->syncSession($sessionId);
+            $projectId=$this->mapping('session',$sessionId,'project');
+            if (!$projectId) { $projectId=$this->syncSession($sessionId); }
             $times=$this->slotTimes($slot,$session->timezone);
             $actionId=$this->mapping('session_slot',$slotId,'actioncomm');
             $label=$session->label.' — '.$session->ref;
@@ -107,7 +136,6 @@ final class TrainingDolibarrIntegrationService
             }
             $this->s->audit('session_slot',$slotId,'dolibarr_actioncomm_synced',array('actioncomm_id'=>$actionId,'project_id'=>$projectId));
             return $actionId;
-        });
     }
 
     public function syncSessionAgenda(int $sessionId): array
