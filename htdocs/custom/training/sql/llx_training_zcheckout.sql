@@ -117,7 +117,7 @@ CREATE TABLE IF NOT EXISTS llx_training_webhook_event (
     KEY idx_training_webhook_event_object (entity, stripe_object_type, stripe_object_id),
     KEY idx_training_webhook_event_processed (entity, processed),
     KEY idx_training_webhook_event_datec (entity, datec),
-    CONSTRAINT fk_llx_training_webhook_event_entity FOREIGN KEY (entity) REFERENCES llx_entity(rowid)
+    -- entity is Dolibarr's current tenant id; do not hard-link to optional multicompany table
 ) ENGINE=InnoDB;
 
 -- Outbox: async processing queue for emails and other notifications
