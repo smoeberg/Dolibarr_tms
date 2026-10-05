@@ -22,6 +22,10 @@ for ($i=0;$i<2;$i++) {
     $db->connection->multi_query($seatSchema);
     do { if ($result=$db->connection->store_result()) { $result->free(); } } while ($db->connection->more_results() && $db->connection->next_result());
 }
+// confirm() writes an enrollment price snapshot, so the price table must exist.
+$priceSchema=str_replace('llx_', 'tst_',file_get_contents(__DIR__.'/../htdocs/custom/training/sql/llx_training_zprice.sql'));
+$db->connection->multi_query($priceSchema);
+do { if ($result=$db->connection->store_result()) { $result->free(); } } while ($db->connection->more_results() && $db->connection->next_result());
 $store = bookingStore($db);
 $scheduling = new TrainingSchedulingService($store);
 $enrollments = new TrainingEnrollmentService($store);
