@@ -367,7 +367,7 @@ final class TrainingCheckoutService
             .$entity.', '.$this->store->text($event['id']).', '.$this->store->text($event['type']).', '
             .$this->store->text($objectType).', '.$this->store->text($objectId).', '
             .$this->store->text($this->store->db->escape($event['object'] ? json_encode($event['object']) : '{}')).', '
-            .0.', 0, '.$now.', '.$actor.', '.$now.', '.$actor.')'
+            .'0, 0, '.$now.', '.$actor.', '.$now.', '.$actor.')'
         );
         
         return (int) $this->store->db->last_insert_id($this->store->table('webhook_event'));
@@ -377,7 +377,7 @@ final class TrainingCheckoutService
     {
         $this->store->query(
             'UPDATE '.$this->store->table('webhook_event').
-            ' SET processed=1, processing_attempts=processing_attempts+1, '
+            ' SET processed=1, processing_attempts=processing_attempts+1, '.
             'changed_at='.$this->store->now().
             ', fk_user_modifier='.$this->store->access->actor().
             ' WHERE rowid='.$webhookEventId.' AND entity='.$this->store->access->entity()
@@ -629,8 +629,8 @@ final class TrainingCheckoutService
         
         $this->store->query(
             'INSERT INTO '.$this->store->table('checkout_payment').
-            ' (entity, fk_checkout_session, amount_ht, amount_ttc, currency, '
-            'stripe_payment_intent_id, stripe_charge_id, payment_status, payment_method_type, '
+            ' (entity, fk_checkout_session, amount_ht, amount_ttc, currency, '.
+            'stripe_payment_intent_id, stripe_charge_id, payment_status, payment_method_type, '.
             'datec, fk_user_author, changed_at, fk_user_modifier) VALUES ('
             .$entity.', '.$checkoutSessionId.', '
             .$this->store->text($amountHt).', '.$this->store->text($amountTtc).', '
@@ -736,7 +736,7 @@ final class TrainingCheckoutService
         
         $this->store->query(
             'INSERT INTO '.$this->store->table('reconciliation').
-            ' (entity, fk_checkout_payment, provider, provider_ref, amount, currency, '
+            ' (entity, fk_checkout_payment, provider, provider_ref, amount, currency, '.
             'reconciliation_date, status, datec, fk_user_author, changed_at, fk_user_modifier) VALUES ('
             .$entity.', '.$paymentId.', '
             .$this->store->text('stripe').', '

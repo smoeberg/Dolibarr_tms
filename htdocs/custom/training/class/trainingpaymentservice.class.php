@@ -221,8 +221,8 @@ final class TrainingPaymentService
         $this->s->session($sessionId);
         
         return $this->s->rows(
-            'SELECT ca.rowid, ca.fk_facture, ca.fk_facturedet, ca.fk_enrollment, ca.amount, ca.currency, ca.datec, '
-            'cs.invoice_ref, cs.date_credit, ca.status, ca.revision '
+            'SELECT ca.rowid, ca.fk_facture, ca.fk_facturedet, ca.fk_enrollment, ca.amount, ca.currency, ca.datec, '.
+            'cs.invoice_ref, cs.date_credit, ca.status, ca.revision '.
             'FROM '.$this->s->table('creditnote_allocation').' ca '.
             'LEFT JOIN '.$this->s->table('creditnote_snapshot').' cs ON cs.fk_allocation = ca.rowid AND cs.entity = ca.entity '.
             'JOIN '.$this->s->table('enrollment').' e ON e.rowid = ca.fk_enrollment AND e.entity = ca.entity '.
