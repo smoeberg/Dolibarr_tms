@@ -32,19 +32,18 @@ final class TrainingPriceService
         $this->s->access->requireDomain('session', 'read');
         $session = $this->s->session($sessionId);
 
-        require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
-        $product = new Product($this->s->db);
-        if ($product->fetch((int) $session->fk_product) <= 0) {
-            throw new RuntimeException('TrainingServiceNotAccessible');
-        }
-
+        // Delegate to the store's product loader (real Dolibarr Product in
+        // production, injected loader in tests) so Dolibarr stays authoritative.
+        $product = $this->s->product((int) $session->fk_product);
         $this->s->access->requireService($product);
 
         // Dolibarr is authoritative. Product::$price is the HT value after
         // Dolibarr normalisation, while Product::$price_ttc is the TTC value.
-        $price_ht = (float) $product->price;
-        $price_ttc = (float) $product->price_ttc;
-        $tva_tx = (float) $product->tva_tx;
+        // Loader results may omit price columns (e.g. minimal test fixtures);
+        // treat them as zero rather than undefined-property warnings.
+        $price_ht = isset($product->price) ? (float) $product->price : 0.0;
+        $price_ttc = isset($product->price_ttc) ? (float) $product->price_ttc : 0.0;
+        $tva_tx = isset($product->tva_tx) ? (float) $product->tva_tx : 0.0;
 
         // price_base_type is HT/TTC, never the currency. Currency comes from
         // the Dolibarr entity/company configuration.
