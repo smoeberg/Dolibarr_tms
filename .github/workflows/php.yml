@@ -46,29 +46,7 @@ jobs:
       - name: Refresh reproducible module archive
         run: |
           cp /tmp/module_training.zip dist/module_training-0.8.0.zip
-
-          unset GIT_DIR GIT_WORK_TREE
-          cd "$GITHUB_WORKSPACE"
-          set -x
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
-            target_branch="${GITHUB_HEAD_REF}"
-            git fetch -q --depth 1 origin "$target_branch"
-            git checkout -q -B "$target_branch" "origin/$target_branch"
-          else
-            target_branch="$GITHUB_REF_NAME"
-          fi
-
-          git add dist/module_training-0.8.0.zip
-          if git diff --cached --quiet; then
-            echo "Committed archive already matches source"
-          else
-            git commit -m "chore: refresh reproducible module archive [skip ci]"
-            git push "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" "HEAD:$target_branch"
-          fi
+          echo "Using the freshly built archive for this CI run"
 
       - name: Reproducible installable module
         run: python3 tests/package.py
