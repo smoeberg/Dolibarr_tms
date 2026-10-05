@@ -49,8 +49,12 @@ jobs:
           cd "$GITHUB_WORKSPACE"
           set -x
           pwd
-          ls -a
-          git rev-parse --git-dir
+          git rev-parse --git-dir 2>/dev/null || {
+            git init -q .
+            git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+            git fetch -q --depth 1 origin "$GITHUB_REF_NAME"
+            git reset -q --hard FETCH_HEAD
+          }
           cp /tmp/module_training.zip dist/module_training-0.8.0.zip
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
