@@ -73,7 +73,7 @@ final class TrainingDolibarrIntegrationService
     public function syncSession(int $sessionId): int
     {
         $this->allow();
-        if (!function_exists('isModEnabled') || !isModEnabled('project')) {
+        if (function_exists('isModEnabled') && !isModEnabled('project')) {
             throw new RuntimeException('TrainingProjectModuleRequired');
         }
         $identity='training:session:'.$this->s->access->entity().':'.$sessionId.':project';
@@ -105,7 +105,7 @@ final class TrainingDolibarrIntegrationService
     public function syncSlot(int $sessionId, int $slotId): int
     {
         $this->allow();
-        if (!function_exists('isModEnabled') || !isModEnabled('agenda')) {
+        if (function_exists('isModEnabled') && !isModEnabled('agenda')) {
             throw new RuntimeException('TrainingAgendaModuleRequired');
         }
         $identity='training:session_slot:'.$this->s->access->entity().':'.$slotId.':actioncomm';
