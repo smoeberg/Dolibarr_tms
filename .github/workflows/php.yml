@@ -54,7 +54,7 @@ jobs:
             git init -q .
             git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
             git fetch -q --depth 1 origin "$GITHUB_REF_NAME"
-            git reset -q --hard FETCH_HEAD
+            git checkout -q -B "$GITHUB_REF_NAME" FETCH_HEAD
           }
           cp /tmp/module_training.zip dist/module_training-0.8.0.zip
           git config user.name "github-actions[bot]"
