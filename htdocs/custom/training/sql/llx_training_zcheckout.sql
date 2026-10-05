@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS llx_training_checkout_participant (
     CONSTRAINT fk_llx_training_checkout_participant_session FOREIGN KEY (entity, fk_checkout_session) REFERENCES llx_training_checkout_session(entity, rowid) ON DELETE CASCADE,
     CONSTRAINT fk_llx_training_checkout_participant_enrollment FOREIGN KEY (fk_enrollment) REFERENCES llx_training_enrollment(rowid) ON DELETE SET NULL,
     CONSTRAINT fk_llx_training_checkout_participant_contact FOREIGN KEY (fk_contact) REFERENCES llx_socpeople(rowid),
-    CONSTRAINT fk_llx_training_checkout_participant_learner FOREIGN KEY (entity, fk_learner) REFERENCES llx_training_learner(entity, rowid) ON DELETE SET NULL
+    CONSTRAINT fk_llx_training_checkout_participant_learner FOREIGN KEY (entity, fk_learner) REFERENCES llx_training_learner(entity, rowid)
 ) ENGINE=InnoDB;
 
 -- Checkout payment: payment information for a checkout session
