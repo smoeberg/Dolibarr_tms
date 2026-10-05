@@ -111,3 +111,5 @@ jobs:
       - name: Installer diagnostics
         if: failure()
         run: tail -c 12000 .ci/step*.log .ci/http.log || true
+
+# recovery: rebuild the committed archive before the integrity test
