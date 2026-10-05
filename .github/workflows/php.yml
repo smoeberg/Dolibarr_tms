@@ -65,7 +65,7 @@ jobs:
             echo "Committed archive already matches source"
           else
             git commit -m "chore: refresh reproducible module archive"
-            git push
+            git push origin HEAD
           fi
 
       - name: Reproducible installable module
