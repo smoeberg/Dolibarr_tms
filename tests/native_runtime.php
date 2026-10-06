@@ -65,8 +65,10 @@ nativeCheck((int) $attendance->sheet($session,$slot)['rows'][0]->present_minutes
 $report=(new TrainingReportingService($store))->sessions(new TrainingReportFilter(array('search'=>'NATIVE-CI')));
 nativeCheck($report['totals']['sessions']===1 && $report['totals']['confirmed']===1 && $report['totals']['reserved']===0,'Native reporting totals match session detail');
 require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
+require_once DOL_DOCUMENT_ROOT.'/compta/facture/class/facture.class.php';
 require_once DOL_DOCUMENT_ROOT.'/custom/training/class/trainingcommercialservice.class.php';
 require_once DOL_DOCUMENT_ROOT.'/custom/training/class/trainingcommercialcheckoutadapter.class.php';
+require_once DOL_DOCUMENT_ROOT.'/custom/training/class/trainingcheckoutservice.class.php';
 $company=new Societe($db); $company->name='Native Buyer æøå'; $company->client=1; $company->status=1; $company->code_client='auto';
 $companyId=$company->create($user);
 nativeCheck($companyId>0,'Native standard third party creation: '.$company->error);
