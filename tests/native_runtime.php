@@ -153,13 +153,14 @@ require_once DOL_DOCUMENT_ROOT.'/compta/paiement/class/paiement.class.php';
 $observePending=$nativeCheckout->observeNativePayment((int) $nativeCheckoutResult['checkout_session_id']);
 nativeCheck($observePending['status']==='payment_redirected' && $observePending['payment_status']==='pending','Native payment observation remains pending before Paiement exists');
 
-$createNativePayment=function(float $amount) use ($db,$user,$conf,$nativeInvoice): int {
+$createNativePayment=function(float $amount) use ($db,$user,$conf,$nativeInvoice,$companyId): int {
     $methodRow=$db->query('SELECT id FROM '.$db->prefix().'c_paiement WHERE active=1 ORDER BY id LIMIT 1');
     nativeCheck((bool) $methodRow,'Native payment method exists');
     $method=$db->fetch_object($methodRow);
     $payment=new Paiement($db);
     $payment->datep=dol_now();
     $payment->amount=$amount;
+    $payment->amounts=array((int) $companyId => $amount);
     $payment->fk_paiement=(int) $method->id;
     $payment->note='A8 native payment CI';
     $payment->entity=(int) $conf->entity;
