@@ -112,7 +112,7 @@ nativeCheck((int) $invoiceCheck->lines[0]->fk_product===$productId,'Native invoi
 nativeCheck(abs((float) $invoiceCheck->lines[0]->subprice-100.0)<0.000001 && abs((float) $invoiceCheck->total_ttc-125.0)<0.000001,'Native invoice line and total amounts are correct');
 
 // A8 Fase 3 Step 3: checkout session -> native invoice correlation.
-$nativeCheckoutHoldId=(int) $enrollments->reserve($session, array($contactId), 'native-correlation-key', 15);
+$nativeCheckoutHoldId=(int) $enrollments->reserve($session, array($contactId), str_repeat('f', 32), 15);
 $nativeCheckout=new TrainingCheckoutService($store, null, $nativeAdapter);
 $nativeCheckoutResult=$nativeCheckout->createNativeCheckoutSession(
     $session,
