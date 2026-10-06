@@ -1,10 +1,12 @@
 <?php
 require_once __DIR__.'/lib/ui.lib.php';
+require_once __DIR__.'/class/trainingdolibarrintegrationservice.class.php';
 $access = trainingAccess();
 try { $access->requireDomain('session', 'read'); } catch (Throwable $e) { accessforbidden(); }
 $store = new TrainingStore($db, $access);
 $scheduling = new TrainingSchedulingService($store);
 $enrollments = new TrainingEnrollmentService($store);
+$nativeIntegration = new TrainingDolibarrIntegrationService($store);
 $id = GETPOSTINT('id');
 try { $detail = $scheduling->detail($id); } catch (Throwable $e) { accessforbidden(); }
 $error = '';
@@ -24,6 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'capacity': $scheduling->changeCapacity($id, trainingCapacity()); break;
             case 'confirm': $enrollments->confirm($id, GETPOSTINT('contact_id')); break;
             case 'cancel': $enrollments->cancel($id, GETPOSTINT('enrollment_id'), GETPOST('reason', 'alphanohtml')); break;
+            case 'sync_native': $nativeIntegration->syncSessionAgenda($id); break;
             default: throw new RuntimeException('TrainingInvalidTransition');
         }
         header('Location: '.dol_buildpath('/training/session.php', 1).'?id='.$id); exit;

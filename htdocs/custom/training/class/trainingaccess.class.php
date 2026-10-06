@@ -127,4 +127,5 @@ final class TrainingAccess
 
     public function entity(): int { return $this->entity; }
     public function actor(): int { return (int) $this->user->id; }
+    public function actorUser() { return $this->user; }
 }

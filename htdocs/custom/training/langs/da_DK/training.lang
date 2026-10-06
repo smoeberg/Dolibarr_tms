@@ -340,3 +340,4 @@ TrainingPaymentRef=Betalingsreference
 TrainingAdjust=Justér
 TrainingRemove=Fjern
 TrainingPaymentAmountHelp=Indtast beløb (fx 100,00 eller 100)
+TrainingSyncDolibarr=Synkroniser med Dolibarr
