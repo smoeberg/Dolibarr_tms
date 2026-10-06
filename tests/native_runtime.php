@@ -158,13 +158,18 @@ $createNativePayment=function(float $amount) use ($db,$user,$conf,$nativeInvoice
     nativeCheck((bool) $methodRow,'Native payment method exists');
     $method=$db->fetch_object($methodRow);
     $payment=new Paiement($db);
-    $payment->datep=dol_now();
+    // Dolibarr Paiement::create() writes column datep from $this->datepaye (not datep).
+    $now=dol_now();
+    $payment->datepaye=$now;
+    $payment->datep=$now;
     $payment->amount=$amount;
+    // amounts is keyed by thirdparty id in some create paths; invoice link is explicit below.
     $payment->amounts=array((int) $companyId => $amount);
+    $payment->paiementid=(int) $method->id;
     $payment->fk_paiement=(int) $method->id;
     $payment->note='A8 native payment CI';
     $payment->entity=(int) $conf->entity;
-    $paymentId=$payment->create($user);
+    $paymentId=$payment->create($user, 0, false);
     nativeCheck($paymentId>0,'Native Paiement created: '.$payment->error);
     $linked=$payment->addPaymentToInvoice((int) $nativeInvoice['invoice_id'],$amount);
     nativeCheck($linked>0,'Native Paiement linked to checkout invoice: '.$payment->error);
