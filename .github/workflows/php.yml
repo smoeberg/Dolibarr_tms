@@ -5,7 +5,7 @@ on:
   pull_request:
     paths: ['htdocs/**', 'tests/**', 'tools/**', 'dist/**', '.github/workflows/php.yml']
 permissions:
-  contents: write
+  contents: read
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -42,37 +42,17 @@ jobs:
         with:
           name: current-module-archive
           path: /tmp/module_training.zip
-      # Temporary one-time repair for the stale committed archive.
-      # This step is removed immediately after the generated archive is committed.
-      - name: Bootstrap committed module archive once
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          python3 tools/build_module.py
-          if cmp -s dist/module_training-0.8.0.zip /tmp/module_training.zip; then
-            echo "Committed archive already matches deterministic build"
-            exit 0
-          fi
-          API_URL="https://api.github.com/repos/${{ github.repository }}/contents/dist/module_training-0.8.0.zip"
-          SHA="$(curl --fail-with-body -sS \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "$API_URL?ref=${{ github.head_ref }}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["sha"])')"
-          export SHA
-          base64 -w0 dist/module_training-0.8.0.zip |
-            python3 -c 'import json,os,sys; print(json.dumps({"message":"chore: sync deterministic module archive","content":sys.stdin.read(),"sha":os.environ["SHA"],"branch":os.environ["GITHUB_HEAD_REF"]}))' |
-            curl --fail-with-body -sS \
-              -X PUT \
-              -H "Authorization: Bearer $GH_TOKEN" \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "$API_URL" \
-              --data-binary @-
       - name: Verify committed reproducible module archive
         run: |
           test -f dist/module_training-0.8.0.zip
-          echo "Testing the committed shipped archive; CI will not rewrite it"
+          if ! cmp -s dist/module_training-0.8.0.zip /tmp/module_training.zip; then
+            echo "::error::Committed module archive does not match the deterministic build."
+            echo "Rebuild dist/module_training-0.8.0.zip locally and commit the result."
+            exit 1
+          fi
+          echo "Committed module archive matches deterministic build."
+          sha256sum dist/module_training-0.8.0.zip
+          sha256sum /tmp/module_training.zip
       - name: Reproducible installable module
         run: python3 tests/package.py
       - name: Official Dolibarr module descriptor
