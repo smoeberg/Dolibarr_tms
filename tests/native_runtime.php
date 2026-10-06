@@ -141,7 +141,7 @@ nativeCheck((int) $correlatedRow->native_commercial_object_id===$nativeCheckoutR
 nativeCheck($correlatedRow->native_commercial_object_ref===$nativeCheckoutResult['invoice_ref'],'Checkout correlation records native invoice ref');
 nativeCheck($correlatedRow->status==='commercial_created','Checkout state advances only to commercial_created');
 $nativePaymentRedirect=$nativeCheckout->prepareNativePaymentRedirect((int) $nativeCheckoutResult['checkout_session_id']);
-nativeCheck($nativePaymentRedirect === $nativeInvoice['payment_url'],'Native payment redirect returns the correlated invoice payment URL');
+nativeCheck($nativePaymentRedirect === $nativeCheckoutResult['payment_url'],'Native payment redirect returns the correlated invoice payment URL');
 $redirectRow=$db->query('SELECT status FROM '.$db->prefix().'training_checkout_session WHERE rowid='.(int) $nativeCheckoutResult['checkout_session_id']);
 $redirectState=$db->fetch_object($redirectRow);
 nativeCheck($redirectState->status==='payment_redirected','Checkout state advances to payment_redirected when redirect is prepared');
