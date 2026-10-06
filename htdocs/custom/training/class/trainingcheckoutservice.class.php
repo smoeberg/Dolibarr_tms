@@ -286,6 +286,126 @@ final class TrainingCheckoutService
         return $paymentUrl;
     }
 
+    /**
+     * Observe native Dolibarr Paiement records for the correlated invoice.
+     *
+     * Payment URL/redirect is not payment proof. This method reads Dolibarr's
+     * persisted Paiement + PaiementFacture records and advances only when the
+     * cumulative native payment amount covers the frozen checkout obligation.
+     * Partial payment remains observable but does not advance the checkout.
+     * Overpayment is accepted as paid; the excess remains a native accounting
+     * concern and is deliberately not allocated by this method.
+     */
+    public function observeNativePayment(int $checkoutSessionId): array
+    {
+        $this->store->access->requireDomain('checkout', 'write');
+
+        $rows = $this->store->rows(
+            'SELECT rowid, status, currency, total_amount_ttc, native_commercial_object_type, '.
+            'native_commercial_object_id, native_commercial_object_ref, native_payment_id, '.
+            'native_payment_ref, native_payment_amount '.
+            'FROM '.$this->store->table('checkout_session').
+            ' WHERE rowid='.$checkoutSessionId.' AND entity='.$this->store->access->entity()
+        );
+        if (!$rows) {
+            throw new RuntimeException('TrainingCheckoutSessionNotFound');
+        }
+
+        $checkout = $rows[0];
+        $status = (string) $checkout->status;
+        if ($status === 'paiement_present') {
+            return array(
+                'checkout_session_id' => $checkoutSessionId,
+                'status' => 'paiement_present',
+                'payment_status' => 'paid',
+                'paid_amount' => (float) $checkout->native_payment_amount,
+                'required_amount' => (float) $checkout->total_amount_ttc,
+                'payment_id' => (int) $checkout->native_payment_id,
+                'payment_ref' => (string) $checkout->native_payment_ref,
+            );
+        }
+        if ($status !== 'payment_redirected') {
+            throw new RuntimeException('TrainingCheckoutInvalidTransition');
+        }
+
+        if ((string) $checkout->native_commercial_object_type !== 'invoice' ||
+            (int) $checkout->native_commercial_object_id < 1 ||
+            trim((string) $checkout->native_commercial_object_ref) === '') {
+            throw new RuntimeException('TrainingCheckoutPaymentCorrelationInvalid');
+        }
+
+        $invoiceRows = $this->store->rows(
+            'SELECT rowid, entity, ref, total_ttc, multicurrency_code '.
+            'FROM '.$this->store->table('facture').
+            ' WHERE rowid='.(int) $checkout->native_commercial_object_id.
+            ' AND entity='.$this->store->access->entity()
+        );
+        if (!$invoiceRows) {
+            throw new RuntimeException('TrainingCheckoutNativeInvoiceNotFound');
+        }
+        $invoice = $invoiceRows[0];
+        if ((string) $invoice->ref !== trim((string) $checkout->native_commercial_object_ref)) {
+            throw new RuntimeException('TrainingCheckoutPaymentCorrelationInvalid');
+        }
+
+        $invoiceCurrency = strtoupper(trim((string) ($invoice->multicurrency_code ?? '')));
+        $checkoutCurrency = strtoupper(trim((string) $checkout->currency));
+        if ($invoiceCurrency !== '' && $invoiceCurrency !== $checkoutCurrency) {
+            throw new RuntimeException('TrainingCheckoutCurrencyMismatch');
+        }
+
+        $required = (float) $checkout->total_amount_ttc;
+        $paymentRows = $this->store->rows(
+            'SELECT p.rowid AS payment_id, p.ref AS payment_ref, p.datep, pf.amount AS payment_amount '.
+            'FROM '.$this->store->table('paiement').' p '.
+            'INNER JOIN '.$this->store->table('paiement_facture').' pf ON pf.fk_paiement=p.rowid '.
+            'WHERE p.entity='.$this->store->access->entity().
+            ' AND pf.fk_facture='.(int) $invoice->rowid.
+            ' ORDER BY p.rowid DESC'
+        );
+
+        $paidAmount = 0.0;
+        foreach ($paymentRows as $payment) {
+            $paidAmount += (float) $payment->payment_amount;
+        }
+
+        $latestPayment = $paymentRows ? $paymentRows[0] : null;
+        $result = array(
+            'checkout_session_id' => $checkoutSessionId,
+            'status' => 'payment_redirected',
+            'payment_status' => $paidAmount <= 0.0 ? 'pending' : ($paidAmount + 0.0000001 < $required ? 'partial' : 'paid'),
+            'paid_amount' => $paidAmount,
+            'required_amount' => $required,
+            'payment_id' => $latestPayment ? (int) $latestPayment->payment_id : 0,
+            'payment_ref' => $latestPayment ? (string) $latestPayment->payment_ref : '',
+        );
+
+        if ($paidAmount + 0.0000001 < $required) {
+            return $result;
+        }
+
+        if (!$latestPayment || (int) $latestPayment->payment_id < 1) {
+            throw new RuntimeException('TrainingCheckoutNativePaymentMissing');
+        }
+
+        $result['status'] = 'paiement_present';
+        $result['payment_status'] = $paidAmount > $required + 0.0000001 ? 'overpaid' : 'paid';
+
+        $this->store->query(
+            'UPDATE '.$this->store->table('checkout_session').
+            ' SET status='.$this->store->text('paiement_present').
+            ', native_payment_id='.(int) $latestPayment->payment_id.
+            ', native_payment_ref='.$this->store->text((string) $latestPayment->payment_ref).
+            ', native_payment_amount='.$this->store->text(number_format($paidAmount, 8, '.', '')).
+            ', changed_at='.$this->store->now().
+            ', fk_user_modifier='.$this->store->access->actor().
+            ' WHERE rowid='.$checkoutSessionId.' AND entity='.$this->store->access->entity().
+            ' AND status='.$this->store->text('payment_redirected')
+        );
+
+        return $result;
+    }
+
     private function resolveNativeBillingCustomer(array $participantData): int
     {
         $customerId = 0;
