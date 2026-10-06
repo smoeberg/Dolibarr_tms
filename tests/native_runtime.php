@@ -72,6 +72,8 @@ $companyId=$company->create($user);
 nativeCheck($companyId>0,'Native standard third party creation: '.$company->error);
 $commercial=new TrainingCommercialService($store);
 $commercial->change($session,$enrollment,0,array('buyer'=>$companyId,'payer'=>$companyId,'employer'=>null),'Native commercial registration');
+$contact->socid=$companyId;
+$contact->update($user);
 nativeCheck($commercial->detail($session,$enrollment)['parties']['buyer']->nom==='Native Buyer æøå','Native third-party role round trip');
 
 // A8 Fase 3 Step 1-2: native commercial checkout adapter.
@@ -110,7 +112,7 @@ nativeCheck((int) $invoiceCheck->lines[0]->fk_product===$productId,'Native invoi
 nativeCheck(abs((float) $invoiceCheck->lines[0]->subprice-100.0)<0.000001 && abs((float) $invoiceCheck->total_ttc-125.0)<0.000001,'Native invoice line and total amounts are correct');
 
 // A8 Fase 3 Step 3: checkout session -> native invoice correlation.
-$nativeCheckoutHoldId=(int) $enrollmentService->reserve($session, array($contactId), 'native-correlation-key', 15);
+$nativeCheckoutHoldId=(int) $enrollments->reserve($session, array($contactId), 'native-correlation-key', 15);
 $nativeCheckout=new TrainingCheckoutService($store, null, $nativeAdapter);
 $nativeCheckoutResult=$nativeCheckout->createNativeCheckoutSession(
     $session,
