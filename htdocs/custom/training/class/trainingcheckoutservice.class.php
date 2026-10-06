@@ -235,6 +235,57 @@ final class TrainingCheckoutService
         );
     }
 
+    /**
+     * Prepare the native Dolibarr payment redirect for a correlated checkout.
+     *
+     * Only a checkout already correlated to a native invoice may enter this
+     * transition. The persisted invoice reference is the correlation authority;
+     * the payment URL is derived by the native commercial adapter.
+     */
+    public function prepareNativePaymentRedirect(int $checkoutSessionId): string
+    {
+        $this->store->access->requireDomain('checkout', 'write');
+
+        $rows = $this->store->rows(
+            'SELECT status, native_commercial_object_type, native_commercial_object_id, native_commercial_object_ref, entity '.
+            'FROM '.$this->store->table('checkout_session').
+            ' WHERE rowid='.$checkoutSessionId.' AND entity='.$this->store->access->entity()
+        );
+        if (!$rows) {
+            throw new RuntimeException('TrainingCheckoutSessionNotFound');
+        }
+
+        $checkout = $rows[0];
+        $status = (string) $checkout->status;
+        if ($status !== 'commercial_created' && $status !== 'payment_redirected') {
+            throw new RuntimeException('TrainingCheckoutInvalidTransition');
+        }
+
+        if ((string) $checkout->native_commercial_object_type !== 'invoice' ||
+            (int) $checkout->native_commercial_object_id < 1 ||
+            trim((string) $checkout->native_commercial_object_ref) === '') {
+            throw new RuntimeException('TrainingCheckoutPaymentCorrelationInvalid');
+        }
+
+        $paymentUrl = $this->commercialCheckout->paymentUrlForInvoice(
+            (int) $checkout->entity,
+            (string) $checkout->native_commercial_object_ref
+        );
+
+        if ($status === 'commercial_created') {
+            $this->store->query(
+                'UPDATE '.$this->store->table('checkout_session').
+                ' SET status='.$this->store->text('payment_redirected').
+                ', changed_at='.$this->store->now().
+                ', fk_user_modifier='.$this->store->access->actor().
+                ' WHERE rowid='.$checkoutSessionId.' AND entity='.$this->store->access->entity().
+                ' AND status='.$this->store->text('commercial_created')
+            );
+        }
+
+        return $paymentUrl;
+    }
+
     private function resolveNativeBillingCustomer(array $participantData): int
     {
         $customerId = 0;

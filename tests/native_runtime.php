@@ -140,6 +140,13 @@ nativeCheck($correlatedRow->native_commercial_object_type==='invoice','Checkout 
 nativeCheck((int) $correlatedRow->native_commercial_object_id===$nativeCheckoutResult['invoice_id'],'Checkout correlation records native invoice id');
 nativeCheck($correlatedRow->native_commercial_object_ref===$nativeCheckoutResult['invoice_ref'],'Checkout correlation records native invoice ref');
 nativeCheck($correlatedRow->status==='commercial_created','Checkout state advances only to commercial_created');
+$nativePaymentRedirect=$nativeCheckout->prepareNativePaymentRedirect((int) $nativeCheckoutResult['checkout_session_id']);
+nativeCheck($nativePaymentRedirect === $nativeCheckoutResult['payment_url'],'Native payment redirect returns the correlated invoice payment URL');
+$redirectRow=$db->query('SELECT status FROM '.$db->prefix().'training_checkout_session WHERE rowid='.(int) $nativeCheckoutResult['checkout_session_id']);
+$redirectState=$db->fetch_object($redirectRow);
+nativeCheck($redirectState->status==='payment_redirected','Checkout state advances to payment_redirected when redirect is prepared');
+$nativePaymentRedirectAgain=$nativeCheckout->prepareNativePaymentRedirect((int) $nativeCheckoutResult['checkout_session_id']);
+nativeCheck($nativePaymentRedirectAgain === $nativePaymentRedirect,'Native payment redirect is idempotent');
 
 $tables=array('training_enrollment_commercial','training_seat_hold','training_seat_member','training_course_profile','training_course_version','training_audit','training_session','training_session_slot','training_learner','training_enrollment','training_attendance','training_billing_line','training_billing_allocation','training_trainer','training_trainer_assignment');
 $counts=array(); foreach ($tables as $table) { $counts[$table]=nativeCount($table); }
