@@ -89,16 +89,16 @@ class modTraining extends DolibarrModules
             'native_commercial_object_id' => 'integer DEFAULT NULL',
             'native_commercial_object_ref' => 'varchar(64) DEFAULT NULL',
         );
-        $res = $this->db->query("SELECT column_name FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'llx_training_checkout_session'");
-        if (!$res) {
-            return 0; // Table does not exist or cannot be inspected; nothing to migrate.
-        }
         $existing = array();
-        while ($row = $this->db->fetch_array($res)) {
-            // information_schema column labels differ by server: MariaDB returns
-            // `column_name`, MySQL 8.0 returns `COLUMN_NAME`.
-            foreach ($row as $key => $value) {
-                $existing[strtolower($value)] = true;
+        foreach ($columns as $name => $definition) {
+            // The lowercase alias is what the query requests, so it is stable across
+            // MySQL and MariaDB regardless of information_schema label casing.
+            $res = $this->db->query("SELECT COUNT(*) AS n FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'llx_training_checkout_session' AND column_name = '".$this->db->escape($name)."'");
+            if ($res) {
+                $row = $this->db->fetch_object($res);
+                if ($row && (int) $row->n > 0) {
+                    $existing[$name] = true;
+                }
             }
         }
         $missing = array();
