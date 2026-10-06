@@ -336,7 +336,7 @@ final class TrainingCheckoutService
 
         $invoiceRows = $this->store->rows(
             'SELECT rowid, entity, ref, total_ttc, multicurrency_code '.
-            'FROM '.$this->store->table('facture').
+            'FROM '.$this->store->db->prefix().'facture'.
             ' WHERE rowid='.(int) $checkout->native_commercial_object_id.
             ' AND entity='.$this->store->access->entity()
         );
@@ -357,8 +357,8 @@ final class TrainingCheckoutService
         $required = (float) $checkout->total_amount_ttc;
         $paymentRows = $this->store->rows(
             'SELECT p.rowid AS payment_id, p.ref AS payment_ref, p.datep, pf.amount AS payment_amount '.
-            'FROM '.$this->store->table('paiement').' p '.
-            'INNER JOIN '.$this->store->table('paiement_facture').' pf ON pf.fk_paiement=p.rowid '.
+            'FROM '.$this->store->db->prefix().'paiement'.' p '.
+            'INNER JOIN '.$this->store->db->prefix().'paiement_facture'.' pf ON pf.fk_paiement=p.rowid '.
             'WHERE p.entity='.$this->store->access->entity().
             ' AND pf.fk_facture='.(int) $invoice->rowid.
             ' ORDER BY p.rowid DESC'
