@@ -94,7 +94,9 @@ final class TrainingCommercialCheckoutAdapter
 
         $entity = $this->store->access->entity();
         $this->assertCurrency($currency);
-        $this->assertProductPriceAgreement($product, $priceHt, $priceTtc, $tvaTx);
+        // TMS supplies the accepted transaction price. The native Product is
+        // catalog identity, not a requirement that the accepted checkout
+        // price still equals today's catalog price.
         $description = trim((string) ($commercial['description'] ?? $product->label ?? 'Training service'));
         if ($description === '') {
             $description = 'Training service';
@@ -123,29 +125,38 @@ final class TrainingCommercialCheckoutAdapter
             $productId,
             0,
             '',
+            '',
+            0,
+            0,
             0,
             'HT',
             (float) $priceTtc,
             1,
-            0,
-            0,
-            '',
-            0,
+            -1,
             0,
             '',
-            '',
-            array(),
+            0,
+            0,
             null,
             0,
             '',
+            array(),
+            100,
             0,
-            -1,
+            null,
             0,
-            ''
+            '',
+            0
         );
         if ($lineResult <= 0) {
             $this->deleteDraft($invoice);
             throw new RuntimeException($this->nativeError($invoice, 'TrainingCheckoutInvoiceLineCreateFailed'));
+        }
+
+        // Dolibarr 24 requires invoice lines to be loaded before validation.
+        if (method_exists($invoice, 'fetch_lines') && $invoice->fetch_lines() < 0) {
+            $this->deleteDraft($invoice);
+            throw new RuntimeException($this->nativeError($invoice, 'TrainingCheckoutInvoiceLinesLoadFailed'));
         }
 
         $validateResult = $invoice->validate($this->store->access->actorUser());
@@ -193,17 +204,6 @@ final class TrainingCommercialCheckoutAdapter
         $nativeCurrency = strtoupper(trim($nativeCurrency));
         if ($nativeCurrency !== '' && $nativeCurrency !== $currency) {
             throw new RuntimeException('TrainingCheckoutCurrencyMismatch');
-        }
-    }
-
-    private function assertProductPriceAgreement($product, string $priceHt, string $priceTtc, string $tvaTx): void
-    {
-        $nativeHt = number_format((float) ($product->price ?? 0), 8, '.', '');
-        $nativeTtc = number_format((float) ($product->price_ttc ?? 0), 8, '.', '');
-        $nativeVat = number_format((float) ($product->tva_tx ?? 0), 8, '.', '');
-
-        if ((float) $priceHt !== (float) $nativeHt || (float) $priceTtc !== (float) $nativeTtc || (float) $tvaTx !== (float) $nativeVat) {
-            throw new RuntimeException('TrainingCheckoutPriceAgreementMismatch');
         }
     }
 
