@@ -112,11 +112,16 @@ nativeCheck((int) $invoiceCheck->lines[0]->fk_product===$productId,'Native invoi
 nativeCheck(abs((float) $invoiceCheck->lines[0]->subprice-100.0)<0.000001 && abs((float) $invoiceCheck->total_ttc-125.0)<0.000001,'Native invoice line and total amounts are correct');
 
 // A8 Fase 3 Step 3: checkout session -> native invoice correlation.
-$nativeCheckoutHoldId=(int) $enrollments->reserve($session, array($contactId), str_repeat('f', 32), 15);
+// A fresh contact: $contactId is already confirmed into the session above.
+$checkoutContact=new Contact($db); $checkoutContact->firstname='Native'; $checkoutContact->lastname='Checkout'; $checkoutContact->statut=1;
+$checkoutContactId=$checkoutContact->create($user);
+nativeCheck($checkoutContactId > 0, 'Native checkout contact creation: '.$checkoutContact->error);
+$checkoutContact->socid=$companyId; $checkoutContact->update($checkoutContactId, $user);
+$nativeCheckoutHoldId=(int) $enrollments->reserve($session, array($checkoutContactId), str_repeat('f', 32), 15);
 $nativeCheckout=new TrainingCheckoutService($store, null, $nativeAdapter);
 $nativeCheckoutResult=$nativeCheckout->createNativeCheckoutSession(
     $session,
-    array(array('contact_id'=>$contactId,'first_name'=>'Native','last_name'=>'Buyer','email'=>'native@example.test','phone'=>'')),
+    array(array('contact_id'=>$checkoutContactId,'first_name'=>'Native','last_name'=>'Checkout','email'=>'native@example.test','phone'=>'')),
     'native-correlation-key',
     $nativeCheckoutHoldId
 );
