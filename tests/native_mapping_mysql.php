@@ -65,12 +65,12 @@ $integration->syncSessionAgenda($integrationSession);
 verify($native->createdActions===2 && $native->updatedActions===4,'repeated whole-session agenda sync remains idempotent');
 
 $maps=$db->count('training_native_link');
-verify($maps===2,'session and slot each have exactly one mapping');
+verify($maps===3,'one session mapping and one mapping per slot');
 $row=$db->query("SELECT identity_key FROM tst_training_native_link WHERE source_type='session' AND fk_source=".$integrationSession)->fetch_object();
 verify($row->identity_key==='training:session:2:'.$integrationSession.':project','mapping identity is deterministic and entity-scoped');
 
 $foreignSession=$scheduling->create($first,'NATIVE-MAP-02','Second entity check',1,'Europe/Copenhagen');
 verify($integration->syncSession($foreignSession)>0,'same service can sync another TMS object without cross-entity collision');
-verify($db->count('training_native_link')===3,'each TMS source gets its own native mapping');
+verify($db->count('training_native_link')===4,'each TMS source gets its own native mapping');
 
 echo 'Native Dolibarr mapping MySQL tests passed.'.PHP_EOL;
