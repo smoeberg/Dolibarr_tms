@@ -43,8 +43,8 @@ $native=new NativeGatewayDouble();
 $integration=new TrainingDolibarrIntegrationService($store,$native);
 $integrationSession=$scheduling->create($first,'NATIVE-MAP-01','Native mapping session',2,'Europe/Copenhagen');
 $scheduling->replaceSlots($integrationSession,array(
-    array('start'=>'2026-10-20T09:00:00+02:00','end'=>'2026-10-20T13:20:00+02:00'),
-    array('start'=>'2026-10-20T13:35:00+02:00','end'=>'2026-10-20T17:55:00+02:00')
+    array('start'=>'2026-10-20T09:00:00+02:00','end'=>'2026-10-20T16:00:00+02:00'),
+    array('start'=>'2026-10-21T09:00:00+02:00','end'=>'2026-10-21T16:00:00+02:00')
 ));
 $scheduling->changeStatus($integrationSession,'open');
 $project=$integration->syncSession($integrationSession);
