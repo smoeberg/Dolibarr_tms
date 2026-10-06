@@ -88,6 +88,9 @@ class modTraining extends DolibarrModules
             'native_commercial_object_type' => 'varchar(32) DEFAULT NULL',
             'native_commercial_object_id' => 'integer DEFAULT NULL',
             'native_commercial_object_ref' => 'varchar(64) DEFAULT NULL',
+            'native_payment_id' => 'integer DEFAULT NULL',
+            'native_payment_ref' => 'varchar(64) DEFAULT NULL',
+            'native_payment_amount' => 'decimal(24,8) DEFAULT NULL',
         );
         $existing = array();
         foreach ($columns as $name => $definition) {
