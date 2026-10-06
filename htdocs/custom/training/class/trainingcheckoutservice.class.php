@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__.'/trainingstore.class.php';
+require_once __DIR__.'/trainingcommercialcheckoutadapter.class.php';
 require_once __DIR__.'/trainingstripeadapter.class.php';
 require_once __DIR__.'/trainingenrollmentservice.class.php';
 require_once __DIR__.'/trainingpriceservice.class.php';
@@ -15,7 +16,8 @@ require_once __DIR__.'/trainingoutboxservice.class.php';
 final class TrainingCheckoutService
 {
     private TrainingStore $store;
-    private TrainingStripeAdapter $stripe;
+    private ?TrainingStripeAdapter $stripe;
+    private TrainingCommercialCheckoutAdapter $commercialCheckout;
     private TrainingEnrollmentService $enrollmentService;
     private TrainingPriceService $priceService;
     private TrainingSchedulingService $schedulingService;
@@ -23,10 +25,12 @@ final class TrainingCheckoutService
 
     public function __construct(
         TrainingStore $store,
-        TrainingStripeAdapter $stripe
+        ?TrainingStripeAdapter $stripe = null,
+        ?TrainingCommercialCheckoutAdapter $commercialCheckout = null
     ) {
         $this->store = $store;
         $this->stripe = $stripe;
+        $this->commercialCheckout = $commercialCheckout ?? new TrainingCommercialCheckoutAdapter($store);
         $this->enrollmentService = new TrainingEnrollmentService($store);
         $this->priceService = new TrainingPriceService($store);
         $this->schedulingService = new TrainingSchedulingService($store);
@@ -167,6 +171,106 @@ final class TrainingCheckoutService
             'total_amount' => $totalAmount,
             'currency' => $priceInfo['currency'],
             'expires_at' => $validHold->expires_utc
+        );
+    }
+
+    /**
+     * Create the A8 native commercial checkout correlation.
+     *
+     * This path deliberately does not create a Stripe PaymentIntent, write
+     * checkout_payment, process webhooks, allocate payment, or confirm
+     * enrollment. It only creates the TMS checkout correlation and its native
+     * Dolibarr invoice/payment URL.
+     */
+    public function createNativeCheckoutSession(int $sessionId, array $participantData, string $reservationKey, int $holdId): array
+    {
+        $this->store->access->requireDomain('checkout', 'write');
+        $this->store->access->requireContactRead();
+        $session = $this->store->session($sessionId);
+        $this->validateParticipants($participantData);
+        $holds = $this->enrollmentService->reservations($sessionId);
+        $validHold = null;
+        foreach ($holds as $hold) {
+            if ((int) $hold->rowid === $holdId && $hold->request_key === $reservationKey) {
+                $validHold = $hold;
+                break;
+            }
+        }
+        if (!$validHold || $validHold->status !== 'active') {
+            throw new RuntimeException('TrainingCheckoutInvalidSeatHold');
+        }
+        $priceInfo = $this->priceService->getCatalogPrice($sessionId);
+        $totalAmount = $this->calculateTotalAmount($participantData, $priceInfo);
+        $billingCustomerId = $this->resolveNativeBillingCustomer($participantData);
+        $checkoutSessionId = $this->createCheckoutSessionRecord($sessionId, $holdId, $totalAmount, $priceInfo);
+        $this->createCheckoutParticipants($checkoutSessionId, $sessionId, $participantData);
+        $commercial = $this->commercialCheckout->createInvoice(array(
+            'socid' => $billingCustomerId,
+            'product_id' => (int) $session->fk_product,
+            'price_ht' => trim((string) $priceInfo['price_ht'], "'"),
+            'price_ttc' => trim((string) $priceInfo['price_ttc'], "'"),
+            'tva_tx' => trim((string) $priceInfo['tva_tx'], "'"),
+            'currency' => trim((string) $priceInfo['currency'], "'"),
+            'qty' => count($participantData),
+            'description' => (string) ($session->label ?? 'Training service')
+        ));
+        $this->storeNativeCommercialCorrelation($checkoutSessionId, $commercial);
+        $this->logCheckoutEvent('native_checkout_session_created', array(
+            'checkout_session_id' => $checkoutSessionId,
+            'session_id' => $sessionId,
+            'hold_id' => $holdId,
+            'entity' => $commercial['entity'],
+            'invoice_id' => $commercial['invoice_id'],
+            'invoice_ref' => $commercial['invoice_ref']
+        ));
+        return array(
+            'checkout_session_id' => $checkoutSessionId,
+            'entity' => $commercial['entity'],
+            'invoice_id' => $commercial['invoice_id'],
+            'invoice_ref' => $commercial['invoice_ref'],
+            'payment_url' => $commercial['payment_url'],
+            'total_amount' => (float) $commercial['price_ttc'] * count($participantData),
+            'currency' => $commercial['currency'],
+            'expires_at' => $validHold->expires_utc
+        );
+    }
+
+    private function resolveNativeBillingCustomer(array $participantData): int
+    {
+        $customerId = 0;
+        foreach ($participantData as $participant) {
+            $contact = $this->store->contact((int) $participant['contact_id']);
+            $socid = (int) ($contact->socid ?? 0);
+            if ($socid < 1) {
+                throw new RuntimeException('TrainingCheckoutBillingCustomerRequired');
+            }
+            if ($customerId === 0) {
+                $customerId = $socid;
+            } elseif ($customerId !== $socid) {
+                throw new RuntimeException('TrainingCheckoutParticipantsDifferentCustomers');
+            }
+        }
+        return $customerId;
+    }
+
+    private function storeNativeCommercialCorrelation(int $checkoutSessionId, array $commercial): void
+    {
+        $type = 'invoice';
+        $id = (int) ($commercial['invoice_id'] ?? 0);
+        $ref = trim((string) ($commercial['invoice_ref'] ?? ''));
+        $entity = (int) ($commercial['entity'] ?? 0);
+        if ($entity !== $this->store->access->entity() || $id < 1 || $ref === '') {
+            throw new RuntimeException('TrainingCheckoutCommercialCorrelationInvalid');
+        }
+        $this->store->query(
+            'UPDATE '.$this->store->table('checkout_session').
+            ' SET native_commercial_object_type='.$this->store->text($type).
+            ', native_commercial_object_id='.$id.
+            ', native_commercial_object_ref='.$this->store->text($ref).
+            ', status='.$this->store->text('commercial_created').
+            ', changed_at='.$this->store->now().
+            ', fk_user_modifier='.$this->store->access->actor().
+            ' WHERE rowid='.$checkoutSessionId.' AND entity='.$this->store->access->entity()
         );
     }
 
