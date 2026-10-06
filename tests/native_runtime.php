@@ -149,22 +149,26 @@ $nativePaymentRedirectAgain=$nativeCheckout->prepareNativePaymentRedirect((int) 
 nativeCheck($nativePaymentRedirectAgain === $nativePaymentRedirect,'Native payment redirect is idempotent');
 
 // A8 Fase 3 Step 5: native Dolibarr Paiement observation.
+// Payments must target the checkout-correlated invoice (nativeCheckoutResult),
+// NOT the earlier standalone adapter fixture invoice (nativeInvoice).
 require_once DOL_DOCUMENT_ROOT.'/compta/paiement/class/paiement.class.php';
+$checkoutInvoiceId=(int) $nativeCheckoutResult['invoice_id'];
+nativeCheck($checkoutInvoiceId>0 && $checkoutInvoiceId!==(int) $nativeInvoice['invoice_id'],'Checkout correlated invoice is distinct from adapter fixture invoice');
+
 $observePending=$nativeCheckout->observeNativePayment((int) $nativeCheckoutResult['checkout_session_id']);
 nativeCheck($observePending['status']==='payment_redirected' && $observePending['payment_status']==='pending','Native payment observation remains pending before Paiement exists');
 
-$createNativePayment=function(float $amount) use ($db,$user,$conf,$nativeInvoice): int {
+$createNativePayment=function(float $amount) use ($db,$user,$checkoutInvoiceId): int {
     $methodRow=$db->query('SELECT id FROM '.$db->prefix().'c_paiement WHERE active=1 ORDER BY id LIMIT 1');
     nativeCheck((bool) $methodRow,'Native payment method exists');
     $method=$db->fetch_object($methodRow);
-    $invoiceId=(int) $nativeInvoice['invoice_id'];
     $payment=new Paiement($db);
     // Dolibarr Paiement::create() writes column datep from $this->datepaye.
     $now=dol_now();
     $payment->datepaye=$now;
     $payment->date=$now;
     // amounts is keyed by invoice id; create() inserts paiement_facture rows.
-    $payment->amounts=array($invoiceId => $amount);
+    $payment->amounts=array($checkoutInvoiceId => $amount);
     $payment->paiementid=(int) $method->id;
     $payment->note='A8 native payment CI';
     $paymentId=$payment->create($user, 0, null);
@@ -172,14 +176,21 @@ $createNativePayment=function(float $amount) use ($db,$user,$conf,$nativeInvoice
     return (int) $paymentId;
 };
 
+// Obligation is the checkout invoice TTC (catalog price * 1 participant = 125.00).
 $partialPaymentId=$createNativePayment(100.00);
 $observePartial=$nativeCheckout->observeNativePayment((int) $nativeCheckoutResult['checkout_session_id']);
-nativeCheck($observePartial['status']==='payment_redirected' && $observePartial['payment_status']==='partial','Partial native Paiement does not advance checkout state');
+nativeCheck(
+    $observePartial['status']==='payment_redirected' && $observePartial['payment_status']==='partial',
+    'Partial native Paiement does not advance checkout state (got status='.$observePartial['status'].' payment_status='.$observePartial['payment_status'].' paid='.$observePartial['paid_amount'].' required='.$observePartial['required_amount'].')'
+);
 nativeCheck(abs($observePartial['paid_amount']-100.0)<0.000001 && $observePartial['payment_id']===$partialPaymentId,'Partial native payment amount and identity are observed');
 
 $overPaymentId=$createNativePayment(50.00);
 $observePaid=$nativeCheckout->observeNativePayment((int) $nativeCheckoutResult['checkout_session_id']);
-nativeCheck($observePaid['status']==='paiement_present' && $observePaid['payment_status']==='overpaid','Cumulative native Paiement advances to paiement_present and records overpayment');
+nativeCheck(
+    $observePaid['status']==='paiement_present' && $observePaid['payment_status']==='overpaid',
+    'Cumulative native Paiement advances to paiement_present and records overpayment (got status='.$observePaid['status'].' payment_status='.$observePaid['payment_status'].' paid='.$observePaid['paid_amount'].' required='.$observePaid['required_amount'].')'
+);
 nativeCheck(abs($observePaid['paid_amount']-150.0)<0.000001 && $observePaid['payment_id']===$overPaymentId,'Native payment observation records the payment that completed the obligation');
 $observeAgain=$nativeCheckout->observeNativePayment((int) $nativeCheckoutResult['checkout_session_id']);
 nativeCheck($observeAgain['status']==='paiement_present' && $observeAgain['payment_id']===$overPaymentId && abs($observeAgain['paid_amount']-150.0)<0.000001,'Native paiement_present observation is idempotent');
