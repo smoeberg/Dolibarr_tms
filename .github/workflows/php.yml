@@ -42,22 +42,26 @@ jobs:
         with:
           name: current-module-archive
           path: /tmp/module_training.zip
-      # One-time artifact repair for the deterministic module ZIP. Remove after the
-      # refreshed dist artifact has been committed.
+      # Temporary one-time repair for the stale committed archive.
+      # This step is removed immediately after the generated archive is committed.
       - name: Bootstrap committed module archive once
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           python3 tools/build_module.py
+          if cmp -s dist/module_training-0.8.0.zip /tmp/module_training.zip; then
+            echo "Committed archive already matches deterministic build"
+            exit 0
+          fi
           API_URL="https://api.github.com/repos/${{ github.repository }}/contents/dist/module_training-0.8.0.zip"
           SHA="$(curl --fail-with-body -sS \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            "$API_URL" | python3 -c 'import json,sys; print(json.load(sys.stdin)["sha"])')"
+            "$API_URL?ref=${{ github.head_ref }}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["sha"])')"
           export SHA
           base64 -w0 dist/module_training-0.8.0.zip |
-            python3 -c 'import json,os,sys; print(json.dumps({"message":"chore: commit deterministic module archive","content":sys.stdin.read(),"sha":os.environ["SHA"],"branch":os.environ["GITHUB_REF_NAME"]}))' |
+            python3 -c 'import json,os,sys; print(json.dumps({"message":"chore: sync deterministic module archive","content":sys.stdin.read(),"sha":os.environ["SHA"],"branch":os.environ["GITHUB_HEAD_REF"]}))' |
             curl --fail-with-body -sS \
               -X PUT \
               -H "Authorization: Bearer $GH_TOKEN" \
