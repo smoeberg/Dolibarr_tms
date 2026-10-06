@@ -5,7 +5,7 @@ on:
   pull_request:
     paths: ['htdocs/**', 'tests/**', 'tools/**', 'dist/**', '.github/workflows/php.yml']
 permissions:
-  contents: read
+  contents: write
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -42,6 +42,18 @@ jobs:
         with:
           name: current-module-archive
           path: /tmp/module_training.zip
+      # One-time artifact repair for the deterministic module ZIP. Remove after the
+      # refreshed dist artifact has been committed.
+      - name: Repair committed module archive once
+        run: |
+          python3 tools/build_module.py
+          if ! git diff --quiet -- dist/module_training-0.8.0.zip; then
+            git config user.name github-actions[bot]
+            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+            git add dist/module_training-0.8.0.zip
+            git commit -m "chore: refresh module archive"
+            git push
+          fi
       - name: Verify committed reproducible module archive
         run: |
           test -f dist/module_training-0.8.0.zip
