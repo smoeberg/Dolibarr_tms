@@ -191,6 +191,28 @@ final class TrainingCommercialCheckoutAdapter
         );
     }
 
+    /**
+     * Return the native Dolibarr online-payment URL for an existing invoice.
+     *
+     * The invoice reference is the persisted commercial correlation; the URL
+     * is derived again rather than stored as payment authority.
+     */
+    public function paymentUrlForInvoice(int $entity, string $invoiceRef): string
+    {
+        $this->store->access->requireDomain('checkout', 'write');
+        $invoiceRef = trim($invoiceRef);
+        if ($entity !== $this->store->access->entity() || $invoiceRef === '') {
+            throw new RuntimeException('TrainingCheckoutPaymentCorrelationInvalid');
+        }
+
+        $url = ($this->paymentUrlFactory)($entity, $invoiceRef);
+        if (!is_string($url) || $url === '') {
+            throw new RuntimeException('TrainingCheckoutPaymentUrlUnavailable');
+        }
+
+        return $url;
+    }
+
     private function assertCurrency(string $currency): void
     {
         global $conf;
