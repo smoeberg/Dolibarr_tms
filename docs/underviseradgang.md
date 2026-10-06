@@ -1,5 +1,13 @@
 # Undervisertildeling og hold-specifik fremmødeadgang — 0.5.0
 
+## A8 / Fase 1 arkitekturgrænse
+
+Denne leverance følger A8-boundary: **Dolibarr ejer person- og brugeridentiteten; TMS ejer kun undervisningsdomænets eligibility og holdtildeling.** `training_trainer` er derfor ikke en person-, HR-, kontrakt-, kalender- eller ressource-master. Den indeholder kun entity, reference til Dolibarr `user` og TMS-lokal aktiv/inaktiv eligibility. `training_trainer_assignment` beskriver, om en underviser er tildelt et konkret TMS-hold og har den nødvendige adgang; den er ikke en kalenderbooking eller ressourceallokering.
+
+Intern underviseridentitet kommer fra Dolibarr `user`. Eksterne undervisere er fortsat et afklaret integrations-gap i denne fase; Fase 1 opretter **ikke** en parallel ekstern personmodel i TMS. Eventuel senere understøttelse skal tage udgangspunkt i Dolibarr Contact/Supplier og stadig holde TMS til qualification/eligibility.
+
+Fase 1 ændrer ikke ActionComm, Project, Resources, native_link, checkout, payment, billing eller økonomiske masters. Senere native kalenderallokering sker i en separat fase.
+
 Implementering af [issue #5](https://github.com/smoeberg/Dolibarr_tms/issues/5). En underviser er en profil knyttet til en eksisterende intern **Dolibarr User**. Navn, login, aktivering, kontakt- og kundeadgang og rettigheder forbliver standarddata. Modulet opretter ingen nye brugerkonti eller parallelle personnavne.
 
 ## Data og adfærd
