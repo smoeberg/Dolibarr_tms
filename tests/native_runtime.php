@@ -117,12 +117,16 @@ $checkoutContact=new Contact($db); $checkoutContact->firstname='Native'; $checko
 $checkoutContactId=$checkoutContact->create($user);
 nativeCheck($checkoutContactId > 0, 'Native checkout contact creation: '.$checkoutContact->error);
 $checkoutContact->socid=$companyId; $checkoutContact->update($checkoutContactId, $user);
-$nativeCheckoutHoldId=(int) $enrollments->reserve($session, array($checkoutContactId), str_repeat('f', 32), 15);
+$nativeCheckoutSession=$scheduling->create($version,'NATIVE-CHECKOUT-CI','Native checkout correlation',1,'Europe/Copenhagen');
+$scheduling->replaceSlots($nativeCheckoutSession,array(array('start'=>'2026-10-21T09:00:00+02:00','end'=>'2026-10-21T10:00:00+02:00')));
+$scheduling->changeStatus($nativeCheckoutSession,'open');
+$nativeCheckoutReservationKey=str_repeat('f', 32);
+$nativeCheckoutHoldId=(int) $enrollments->reserve($nativeCheckoutSession, array($checkoutContactId), $nativeCheckoutReservationKey, 15);
 $nativeCheckout=new TrainingCheckoutService($store, null, $nativeAdapter);
 $nativeCheckoutResult=$nativeCheckout->createNativeCheckoutSession(
-    $session,
+    $nativeCheckoutSession,
     array(array('contact_id'=>$checkoutContactId,'first_name'=>'Native','last_name'=>'Checkout','email'=>'native@example.test','phone'=>'')),
-    'native-correlation-key',
+    $nativeCheckoutReservationKey,
     $nativeCheckoutHoldId
 );
 nativeCheck($nativeCheckoutResult['invoice_id']>0,'Checkout correlation returns native invoice id');
