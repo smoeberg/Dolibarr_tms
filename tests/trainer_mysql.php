@@ -4,12 +4,12 @@ $trainers=new TrainingTrainerService($store);
 
 // A8/Fase 1 boundary: trainer is only a TMS identity/eligibility pointer.
 $trainerColumns=array();
-$rows=$db->rows("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='tst_training_trainer' ORDER BY ORDINAL_POSITION");
-foreach ($rows as $row) { $trainerColumns[]=$row->COLUMN_NAME; }
+$rows=$db->query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='tst_training_trainer' ORDER BY ORDINAL_POSITION");
+while ($row=$rows->fetch_object()) { $trainerColumns[]=$row->COLUMN_NAME; }
 verify($trainerColumns===array('rowid','entity','fk_user','active','datec','fk_user_author'),'trainer table contains no parallel person, HR, contract, calendar, or resource fields');
 $assignmentColumns=array();
-$rows=$db->rows("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='tst_training_trainer_assignment' ORDER BY ORDINAL_POSITION");
-foreach ($rows as $row) { $assignmentColumns[]=$row->COLUMN_NAME; }
+$rows=$db->query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='tst_training_trainer_assignment' ORDER BY ORDINAL_POSITION");
+while ($row=$rows->fetch_object()) { $assignmentColumns[]=$row->COLUMN_NAME; }
 verify($assignmentColumns===array('rowid','entity','fk_session','fk_trainer','status','revision','datec','fk_user_author','changed_at','fk_user_modifier'),'trainer assignment contains only session eligibility/access state, not calendar/resource allocation');
 $ownUser=new OwnAttendanceUser();$ownStore=bookingStore($db,2,$ownUser);
 $ownAttendance=new TrainingAttendanceService($ownStore);
