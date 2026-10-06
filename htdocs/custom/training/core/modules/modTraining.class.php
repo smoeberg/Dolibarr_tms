@@ -65,6 +65,9 @@ class modTraining extends DolibarrModules
             $this->error = 'Training schema installation failed; module activation was stopped.'.($dbCode !== '' || $dbError !== '' ? ' DB['.$dbCode.']: '.$dbError : '');
             return -1;
         }
+        if ($this->applyCheckoutCorrelationMigration() < 0) {
+            return -1;
+        }
         return $this->_init(array(), $options);
     }
 
@@ -72,5 +75,44 @@ class modTraining extends DolibarrModules
     {
         // Deactivation must retain profiles, versions and audit history.
         return $this->_remove(array(), $options);
+    }
+
+    /**
+     * A8 Fase 3 trin 3: ensure checkout correlation columns exist on tables created
+     * before they were added. Portable across MySQL 8.0 and MariaDB; MySQL does not
+     * support `ADD COLUMN IF NOT EXISTS`.
+     */
+    private function applyCheckoutCorrelationMigration(): int
+    {
+        $columns = array(
+            'native_commercial_object_type' => 'varchar(32) DEFAULT NULL',
+            'native_commercial_object_id' => 'integer DEFAULT NULL',
+            'native_commercial_object_ref' => 'varchar(64) DEFAULT NULL',
+        );
+        $res = $this->db->query("SELECT column_name FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'llx_training_checkout_session'");
+        if (!$res) {
+            return 0; // Table does not exist or cannot be inspected; nothing to migrate.
+        }
+        $existing = array();
+        while ($row = $this->db->fetch_object($res)) {
+            $existing[strtolower($row->column_name)] = true;
+        }
+        $missing = array();
+        foreach ($columns as $name => $definition) {
+            if (!isset($existing[$name])) {
+                $missing[] = 'ADD COLUMN '.$name.' '.$definition;
+            }
+        }
+        if (empty($missing)) {
+            return 1;
+        }
+        $sql = 'ALTER TABLE llx_training_checkout_session '.implode(', ', $missing);
+        if (!$this->db->query($sql)) {
+            $dbError = method_exists($this->db, 'lasterror') ? $this->db->lasterror() : '';
+            $dbCode = method_exists($this->db, 'errno') ? $this->db->errno() : '';
+            $this->error = 'Training checkout correlation migration failed.'.($dbCode !== '' || $dbError !== '' ? ' DB['.$dbCode.']: '.$dbError : '');
+            return -1;
+        }
+        return 1;
     }
 }

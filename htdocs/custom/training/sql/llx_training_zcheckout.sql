@@ -191,7 +191,7 @@ CREATE TABLE IF NOT EXISTS llx_training_reconciliation (
 ) ENGINE=InnoDB;
 
 -- A8 Fase 3 trin 3: additive correlation fields for existing installations.
-ALTER TABLE llx_training_checkout_session
-    ADD COLUMN IF NOT EXISTS native_commercial_object_type varchar(32) DEFAULT NULL,
-    ADD COLUMN IF NOT EXISTS native_commercial_object_id integer DEFAULT NULL,
-    ADD COLUMN IF NOT EXISTS native_commercial_object_ref varchar(64) DEFAULT NULL;
+-- NOTE: `ADD COLUMN IF NOT EXISTS` is MariaDB-only syntax and fails on MySQL 8.0.
+-- Fresh installations already get these columns from CREATE TABLE above; legacy
+-- upgrades are handled by modTraining::activate() via an information_schema check.
+-- See tools: this file must stay MySQL/MariaDB compatible.
