@@ -153,26 +153,22 @@ require_once DOL_DOCUMENT_ROOT.'/compta/paiement/class/paiement.class.php';
 $observePending=$nativeCheckout->observeNativePayment((int) $nativeCheckoutResult['checkout_session_id']);
 nativeCheck($observePending['status']==='payment_redirected' && $observePending['payment_status']==='pending','Native payment observation remains pending before Paiement exists');
 
-$createNativePayment=function(float $amount) use ($db,$user,$conf,$nativeInvoice,$companyId): int {
+$createNativePayment=function(float $amount) use ($db,$user,$conf,$nativeInvoice): int {
     $methodRow=$db->query('SELECT id FROM '.$db->prefix().'c_paiement WHERE active=1 ORDER BY id LIMIT 1');
     nativeCheck((bool) $methodRow,'Native payment method exists');
     $method=$db->fetch_object($methodRow);
+    $invoiceId=(int) $nativeInvoice['invoice_id'];
     $payment=new Paiement($db);
-    // Dolibarr Paiement::create() writes column datep from $this->datepaye (not datep).
+    // Dolibarr Paiement::create() writes column datep from $this->datepaye.
     $now=dol_now();
     $payment->datepaye=$now;
-    $payment->datep=$now;
-    $payment->amount=$amount;
-    // amounts is keyed by thirdparty id in some create paths; invoice link is explicit below.
-    $payment->amounts=array((int) $companyId => $amount);
+    $payment->date=$now;
+    // amounts is keyed by invoice id; create() inserts paiement_facture rows.
+    $payment->amounts=array($invoiceId => $amount);
     $payment->paiementid=(int) $method->id;
-    $payment->fk_paiement=(int) $method->id;
     $payment->note='A8 native payment CI';
-    $payment->entity=(int) $conf->entity;
-    $paymentId=$payment->create($user, 0, false);
+    $paymentId=$payment->create($user, 0, null);
     nativeCheck($paymentId>0,'Native Paiement created: '.$payment->error);
-    $linked=$payment->addPaymentToInvoice((int) $nativeInvoice['invoice_id'],$amount);
-    nativeCheck($linked>0,'Native Paiement linked to checkout invoice: '.$payment->error);
     return (int) $paymentId;
 };
 
