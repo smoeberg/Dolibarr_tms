@@ -109,6 +109,25 @@ nativeCheck(count($invoiceCheck->lines)===1,'Native checkout invoice has one lin
 nativeCheck((int) $invoiceCheck->lines[0]->fk_product===$productId,'Native invoice line points to native Product');
 nativeCheck(abs((float) $invoiceCheck->lines[0]->subprice-100.0)<0.000001 && abs((float) $invoiceCheck->total_ttc-125.0)<0.000001,'Native invoice line and total amounts are correct');
 
+// A8 Fase 3 Step 3: checkout session -> native invoice correlation.
+$nativeCheckoutHoldId=(int) $enrollmentService->reserve($session, array($contactId), 'native-correlation-key', 15);
+$nativeCheckout=new TrainingCheckoutService($store, null, $nativeAdapter);
+$nativeCheckoutResult=$nativeCheckout->createNativeCheckoutSession(
+    $session,
+    array(array('contact_id'=>$contactId,'first_name'=>'Native','last_name'=>'Buyer','email'=>'native@example.test','phone'=>'')),
+    'native-correlation-key',
+    $nativeCheckoutHoldId
+);
+nativeCheck($nativeCheckoutResult['invoice_id']>0,'Checkout correlation returns native invoice id');
+nativeCheck($nativeCheckoutResult['invoice_ref']!=='','Checkout correlation returns native invoice ref');
+$correlated=$db->query('SELECT entity, native_commercial_object_type, native_commercial_object_id, native_commercial_object_ref, status FROM '.$db->prefix().'training_checkout_session WHERE rowid='.(int) $nativeCheckoutResult['checkout_session_id']);
+$correlatedRow=$db->fetch_object($correlated);
+nativeCheck((int) $correlatedRow->entity===(int) $conf->entity,'Checkout correlation entity matches active entity');
+nativeCheck($correlatedRow->native_commercial_object_type==='invoice','Checkout correlation records native invoice type');
+nativeCheck((int) $correlatedRow->native_commercial_object_id===$nativeCheckoutResult['invoice_id'],'Checkout correlation records native invoice id');
+nativeCheck($correlatedRow->native_commercial_object_ref===$nativeCheckoutResult['invoice_ref'],'Checkout correlation records native invoice ref');
+nativeCheck($correlatedRow->status==='commercial_created','Checkout state advances only to commercial_created');
+
 $tables=array('training_enrollment_commercial','training_seat_hold','training_seat_member','training_course_profile','training_course_version','training_audit','training_session','training_session_slot','training_learner','training_enrollment','training_attendance','training_billing_line','training_billing_allocation','training_trainer','training_trainer_assignment');
 $counts=array(); foreach ($tables as $table) { $counts[$table]=nativeCount($table); }
 nativeCheck(unActivateModule('modTraining',0) === '', 'Native deactivation');
