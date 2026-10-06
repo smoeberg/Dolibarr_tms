@@ -65,13 +65,17 @@ nativeCheck((int) $attendance->sheet($session,$slot)['rows'][0]->present_minutes
 $report=(new TrainingReportingService($store))->sessions(new TrainingReportFilter(array('search'=>'NATIVE-CI')));
 nativeCheck($report['totals']['sessions']===1 && $report['totals']['confirmed']===1 && $report['totals']['reserved']===0,'Native reporting totals match session detail');
 require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
+require_once DOL_DOCUMENT_ROOT.'/compta/facture/class/facture.class.php';
 require_once DOL_DOCUMENT_ROOT.'/custom/training/class/trainingcommercialservice.class.php';
 require_once DOL_DOCUMENT_ROOT.'/custom/training/class/trainingcommercialcheckoutadapter.class.php';
+require_once DOL_DOCUMENT_ROOT.'/custom/training/class/trainingcheckoutservice.class.php';
 $company=new Societe($db); $company->name='Native Buyer æøå'; $company->client=1; $company->status=1; $company->code_client='auto';
 $companyId=$company->create($user);
 nativeCheck($companyId>0,'Native standard third party creation: '.$company->error);
 $commercial=new TrainingCommercialService($store);
 $commercial->change($session,$enrollment,0,array('buyer'=>$companyId,'payer'=>$companyId,'employer'=>null),'Native commercial registration');
+$contact->socid=$companyId;
+$contact->update($contactId, $user);
 nativeCheck($commercial->detail($session,$enrollment)['parties']['buyer']->nom==='Native Buyer æøå','Native third-party role round trip');
 
 // A8 Fase 3 Step 1-2: native commercial checkout adapter.
@@ -108,6 +112,34 @@ $invoiceCheck->fetch_lines();
 nativeCheck(count($invoiceCheck->lines)===1,'Native checkout invoice has one line');
 nativeCheck((int) $invoiceCheck->lines[0]->fk_product===$productId,'Native invoice line points to native Product');
 nativeCheck(abs((float) $invoiceCheck->lines[0]->subprice-100.0)<0.000001 && abs((float) $invoiceCheck->total_ttc-125.0)<0.000001,'Native invoice line and total amounts are correct');
+
+// A8 Fase 3 Step 3: checkout session -> native invoice correlation.
+// A fresh contact: $contactId is already confirmed into the session above.
+$checkoutContact=new Contact($db); $checkoutContact->firstname='Native'; $checkoutContact->lastname='Checkout'; $checkoutContact->statut=1;
+$checkoutContactId=$checkoutContact->create($user);
+nativeCheck($checkoutContactId > 0, 'Native checkout contact creation: '.$checkoutContact->error);
+$checkoutContact->socid=$companyId; $checkoutContact->update($checkoutContactId, $user);
+$nativeCheckoutSession=$scheduling->create($version,'NATIVE-CHECKOUT-CI','Native checkout correlation',1,'Europe/Copenhagen');
+$scheduling->replaceSlots($nativeCheckoutSession,array(array('start'=>'2026-10-21T09:00:00+02:00','end'=>'2026-10-21T10:00:00+02:00')));
+$scheduling->changeStatus($nativeCheckoutSession,'open');
+$nativeCheckoutReservationKey=str_repeat('f', 32);
+$nativeCheckoutHoldId=(int) $enrollments->reserve($nativeCheckoutSession, array($checkoutContactId), $nativeCheckoutReservationKey, 15);
+$nativeCheckout=new TrainingCheckoutService($store, null, $nativeAdapter);
+$nativeCheckoutResult=$nativeCheckout->createNativeCheckoutSession(
+    $nativeCheckoutSession,
+    array(array('contact_id'=>$checkoutContactId,'first_name'=>'Native','last_name'=>'Checkout','email'=>'native@example.test','phone'=>'')),
+    $nativeCheckoutReservationKey,
+    $nativeCheckoutHoldId
+);
+nativeCheck($nativeCheckoutResult['invoice_id']>0,'Checkout correlation returns native invoice id');
+nativeCheck($nativeCheckoutResult['invoice_ref']!=='','Checkout correlation returns native invoice ref');
+$correlated=$db->query('SELECT entity, native_commercial_object_type, native_commercial_object_id, native_commercial_object_ref, status FROM '.$db->prefix().'training_checkout_session WHERE rowid='.(int) $nativeCheckoutResult['checkout_session_id']);
+$correlatedRow=$db->fetch_object($correlated);
+nativeCheck((int) $correlatedRow->entity===(int) $conf->entity,'Checkout correlation entity matches active entity');
+nativeCheck($correlatedRow->native_commercial_object_type==='invoice','Checkout correlation records native invoice type');
+nativeCheck((int) $correlatedRow->native_commercial_object_id===$nativeCheckoutResult['invoice_id'],'Checkout correlation records native invoice id');
+nativeCheck($correlatedRow->native_commercial_object_ref===$nativeCheckoutResult['invoice_ref'],'Checkout correlation records native invoice ref');
+nativeCheck($correlatedRow->status==='commercial_created','Checkout state advances only to commercial_created');
 
 $tables=array('training_enrollment_commercial','training_seat_hold','training_seat_member','training_course_profile','training_course_version','training_audit','training_session','training_session_slot','training_learner','training_enrollment','training_attendance','training_billing_line','training_billing_allocation','training_trainer','training_trainer_assignment');
 $counts=array(); foreach ($tables as $table) { $counts[$table]=nativeCount($table); }
