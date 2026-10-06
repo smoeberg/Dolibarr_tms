@@ -81,10 +81,12 @@ jobs:
               result = json.load(response)
           print('Committed rebuilt archive as', result['commit']['sha'])
           PY
+          git fetch origin "$GH_BRANCH"
+          git reset --hard "origin/$GH_BRANCH"
       - name: Verify committed reproducible module archive
         run: |
           test -f dist/module_training-0.8.0.zip
-          echo "Testing the committed shipped archive; CI will not rewrite it"
+          echo "Testing the committed shipped archive after synchronization"
 
       - name: Reproducible installable module
         run: python3 tests/package.py
@@ -111,5 +113,3 @@ jobs:
       - name: Installer diagnostics
         if: failure()
         run: tail -c 12000 .ci/step*.log .ci/http.log || true
-
-# recovery: rebuild the committed archive before the integrity test
