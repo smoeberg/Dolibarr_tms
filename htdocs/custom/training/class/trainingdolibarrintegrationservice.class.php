@@ -108,43 +108,89 @@ final class TrainingDolibarrIntegrationService
         if (function_exists('isModEnabled') && !isModEnabled('agenda')) {
             throw new RuntimeException('TrainingAgendaModuleRequired');
         }
-        $identity='training:session_slot:'.$this->s->access->entity().':'.$slotId.':actioncomm';
-        $this->lock($identity);
+
+        // Lock order is always session -> slot. This prevents deadlocks between
+        // standalone slot sync and whole-session agenda sync.
+        $sessionIdentity='training:session:'.$this->s->access->entity().':'.$sessionId.':project';
+        $slotIdentity='training:session_slot:'.$this->s->access->entity().':'.$slotId.':actioncomm';
+
+        $this->lock($sessionIdentity);
         try {
-            return $this->syncSlotLocked($sessionId, $slotId, $identity);
-        } finally { $this->unlock($identity); }
+            $this->lock($slotIdentity);
+            try {
+                $projectId=$this->syncSessionLocked($sessionId,$sessionIdentity);
+                return $this->syncSlotLocked($sessionId,$slotId,$slotIdentity,$projectId);
+            } finally {
+                $this->unlock($slotIdentity);
+            }
+        } finally {
+            $this->unlock($sessionIdentity);
+        }
     }
 
-    private function syncSlotLocked(int $sessionId, int $slotId, string $identity): int
+    private function syncSlotLocked(int $sessionId, int $slotId, string $identity, ?int $projectId = null): int
     {
-            $session=$this->s->session($sessionId,true);
-            $slots=$this->s->rows('SELECT * FROM '.$this->s->table('session_slot').' WHERE rowid='.$slotId.' AND entity='.$this->s->access->entity().' AND fk_session='.$sessionId);
-            if (!$slots) { throw new RuntimeException('TrainingSessionSlotNotFound'); }
-            $slot=$slots[0];
+        $session=$this->s->session($sessionId,true);
+        $slots=$this->s->rows('SELECT * FROM '.$this->s->table('session_slot').' WHERE rowid='.$slotId.' AND entity='.$this->s->access->entity().' AND fk_session='.$sessionId);
+        if (!$slots) { throw new RuntimeException('TrainingSessionSlotNotFound'); }
+        $slot=$slots[0];
+
+        if (!$projectId) {
             $projectId=$this->mapping('session',$sessionId,'project');
-            if (!$projectId) { $projectId=$this->syncSession($sessionId); }
-            $times=$this->slotTimes($slot,$session->timezone);
-            $actionId=$this->mapping('session_slot',$slotId,'actioncomm');
-            $label=$session->label.' — '.$session->ref;
-            if ($actionId) {
-                $action=$this->native->action($actionId);
-                $this->native->updateAction($action,$label,$times[0],$times[1],$projectId);
-            } else {
-                $action=$this->native->createAction($label,$times[0],$times[1],$projectId);
-                $this->link('session_slot',$slotId,'actioncomm',(int)$action->id,'training:session_slot:'.$this->s->access->entity().':'.$slotId.':actioncomm');
-                $actionId=(int)$action->id;
+            if (!$projectId) {
+                $projectId=$this->syncSessionLocked(
+                    $sessionId,
+                    'training:session:'.$this->s->access->entity().':'.$sessionId.':project'
+                );
             }
-            $this->s->audit('session_slot',$slotId,'dolibarr_actioncomm_synced',array('actioncomm_id'=>$actionId,'project_id'=>$projectId));
-            return $actionId;
+        }
+
+        $times=$this->slotTimes($slot,$session->timezone);
+        $actionId=$this->mapping('session_slot',$slotId,'actioncomm');
+        $label=$session->label.' — '.$session->ref;
+        if ($actionId) {
+            $action=$this->native->action($actionId);
+            $this->native->updateAction($action,$label,$times[0],$times[1],$projectId);
+        } else {
+            $action=$this->native->createAction($label,$times[0],$times[1],$projectId);
+            $this->link('session_slot',$slotId,'actioncomm',(int)$action->id,'training:session_slot:'.$this->s->access->entity().':'.$slotId.':actioncomm');
+            $actionId=(int)$action->id;
+        }
+        $this->s->audit('session_slot',$slotId,'dolibarr_actioncomm_synced',array('actioncomm_id'=>$actionId,'project_id'=>$projectId));
+        return $actionId;
     }
 
     public function syncSessionAgenda(int $sessionId): array
     {
         $this->allow();
-        $projectId=$this->syncSession($sessionId);
-        $slots=$this->s->rows('SELECT rowid FROM '.$this->s->table('session_slot').' WHERE entity='.$this->s->access->entity().' AND fk_session='.$sessionId.' ORDER BY position');
-        $actions=array();
-        foreach($slots as $slot){ $actions[]=$this->syncSlot($sessionId,(int)$slot->rowid); }
-        return array('project_id'=>$projectId,'actioncomm_ids'=>$actions);
+        if (function_exists('isModEnabled') && !isModEnabled('project')) {
+            throw new RuntimeException('TrainingProjectModuleRequired');
+        }
+        if (function_exists('isModEnabled') && !isModEnabled('agenda')) {
+            throw new RuntimeException('TrainingAgendaModuleRequired');
+        }
+
+        // Keep the same lock order as syncSlot(): session -> slot.
+        $sessionIdentity='training:session:'.$this->s->access->entity().':'.$sessionId.':project';
+        $this->lock($sessionIdentity);
+        try {
+            $projectId=$this->syncSessionLocked($sessionId,$sessionIdentity);
+            $slots=$this->s->rows('SELECT rowid FROM '.$this->s->table('session_slot').' WHERE entity='.$this->s->access->entity().' AND fk_session='.$sessionId.' ORDER BY position');
+            $actions=array();
+            foreach($slots as $slot) {
+                $slotId=(int)$slot->rowid;
+                $slotIdentity='training:session_slot:'.$this->s->access->entity().':'.$slotId.':actioncomm';
+                $this->lock($slotIdentity);
+                try {
+                    $actions[]=$this->syncSlotLocked($sessionId,$slotId,$slotIdentity,$projectId);
+                } finally {
+                    $this->unlock($slotIdentity);
+                }
+            }
+            return array('project_id'=>$projectId,'actioncomm_ids'=>$actions);
+        } finally {
+            $this->unlock($sessionIdentity);
+        }
     }
+
 }
