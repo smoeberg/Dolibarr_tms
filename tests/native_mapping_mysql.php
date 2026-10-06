@@ -58,6 +58,11 @@ $action=$integration->syncSlot($integrationSession,$slot1);
 verify($native->createdActions===1,'first slot sync creates one native agenda event');
 verify($integration->syncSlot($integrationSession,$slot1)===$action,'repeated slot sync reuses mapped agenda event');
 verify($native->createdActions===1 && $native->updatedActions===1,'repeated slot sync updates rather than duplicates');
+$agenda=$integration->syncSessionAgenda($integrationSession);
+verify(count($agenda['actioncomm_ids'])===2,'whole-session agenda sync covers every slot');
+verify($native->createdActions===2,'whole-session agenda sync creates the remaining slot event');
+$integration->syncSessionAgenda($integrationSession);
+verify($native->createdActions===2 && $native->updatedActions===3,'repeated whole-session agenda sync remains idempotent');
 
 $maps=$db->count('training_native_link');
 verify($maps===2,'session and slot each have exactly one mapping');
