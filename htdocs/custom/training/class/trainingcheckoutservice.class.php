@@ -314,10 +314,12 @@ final class TrainingCheckoutService
         $checkout = $rows[0];
         $status = (string) $checkout->status;
         if ($status === 'paiement_present') {
+            $storedPaidAmount = (float) $checkout->native_payment_amount;
+            $storedRequiredAmount = (float) $checkout->total_amount_ttc;
             return array(
                 'checkout_session_id' => $checkoutSessionId,
                 'status' => 'paiement_present',
-                'payment_status' => 'paid',
+                'payment_status' => $storedPaidAmount > $storedRequiredAmount + 0.0000001 ? 'overpaid' : 'paid',
                 'paid_amount' => (float) $checkout->native_payment_amount,
                 'required_amount' => (float) $checkout->total_amount_ttc,
                 'payment_id' => (int) $checkout->native_payment_id,
@@ -355,6 +357,10 @@ final class TrainingCheckoutService
         }
 
         $required = (float) $checkout->total_amount_ttc;
+        if (abs((float) $invoice->total_ttc - $required) > 0.0000001) {
+            throw new RuntimeException('TrainingCheckoutNativeInvoiceAmountMismatch');
+        }
+
         $paymentRows = $this->store->rows(
             'SELECT p.rowid AS payment_id, p.ref AS payment_ref, p.datep, pf.amount AS payment_amount '.
             'FROM '.$this->store->db->prefix().'paiement'.' p '.
