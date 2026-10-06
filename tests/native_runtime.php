@@ -73,7 +73,7 @@ nativeCheck($companyId>0,'Native standard third party creation: '.$company->erro
 $commercial=new TrainingCommercialService($store);
 $commercial->change($session,$enrollment,0,array('buyer'=>$companyId,'payer'=>$companyId,'employer'=>null),'Native commercial registration');
 $contact->socid=$companyId;
-$contact->update($user);
+$contact->update($contactId, $user);
 nativeCheck($commercial->detail($session,$enrollment)['parties']['buyer']->nom==='Native Buyer æøå','Native third-party role round trip');
 
 // A8 Fase 3 Step 1-2: native commercial checkout adapter.
