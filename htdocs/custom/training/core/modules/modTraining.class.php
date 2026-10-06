@@ -94,8 +94,12 @@ class modTraining extends DolibarrModules
             return 0; // Table does not exist or cannot be inspected; nothing to migrate.
         }
         $existing = array();
-        while ($row = $this->db->fetch_object($res)) {
-            $existing[strtolower($row->column_name)] = true;
+        while ($row = $this->db->fetch_array($res)) {
+            // information_schema column labels differ by server: MariaDB returns
+            // `column_name`, MySQL 8.0 returns `COLUMN_NAME`.
+            foreach ($row as $key => $value) {
+                $existing[strtolower($value)] = true;
+            }
         }
         $missing = array();
         foreach ($columns as $name => $definition) {
