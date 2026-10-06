@@ -66,12 +66,49 @@ $report=(new TrainingReportingService($store))->sessions(new TrainingReportFilte
 nativeCheck($report['totals']['sessions']===1 && $report['totals']['confirmed']===1 && $report['totals']['reserved']===0,'Native reporting totals match session detail');
 require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
 require_once DOL_DOCUMENT_ROOT.'/custom/training/class/trainingcommercialservice.class.php';
+require_once DOL_DOCUMENT_ROOT.'/custom/training/class/trainingcommercialcheckoutadapter.class.php';
 $company=new Societe($db); $company->name='Native Buyer æøå'; $company->client=1; $company->status=1; $company->code_client='auto';
 $companyId=$company->create($user);
 nativeCheck($companyId>0,'Native standard third party creation: '.$company->error);
 $commercial=new TrainingCommercialService($store);
 $commercial->change($session,$enrollment,0,array('buyer'=>$companyId,'payer'=>$companyId,'employer'=>null),'Native commercial registration');
 nativeCheck($commercial->detail($session,$enrollment)['parties']['buyer']->nom==='Native Buyer æøå','Native third-party role round trip');
+
+// A8 Fase 3 Step 1-2: native commercial checkout adapter.
+// The payment URL factory is injected here so CI verifies the adapter's
+// entity-preserving URL contract without depending on external Stripe state.
+$nativeProduct=$product;
+$nativeProduct->price_ttc=125;
+$nativeAdapter=new TrainingCommercialCheckoutAdapter(
+    $store,
+    null,
+    function (int $entity, string $ref): string {
+        return 'https://dolibarr.test/public/payment/newpayment.php?invoice='.rawurlencode($ref).'&e='.$entity;
+    }
+);
+$nativeInvoice=$nativeAdapter->createInvoice(array(
+    'socid'=>$companyId,
+    'product_id'=>$productId,
+    'price_ht'=>'100.00000000',
+    'price_ttc'=>'125.00000000',
+    'tva_tx'=>'25.00000000',
+    'currency'=>(string) $conf->currency,
+    'qty'=>1,
+    'description'=>'Native training checkout'
+));
+nativeCheck($nativeInvoice['entity']===(int) $conf->entity,'Checkout invoice uses active Dolibarr entity');
+nativeCheck($nativeInvoice['product_id']===$productId,'Checkout invoice uses native Product');
+nativeCheck($nativeInvoice['price_ht']==='100.00000000' && $nativeInvoice['price_ttc']==='125.00000000','Checkout preserves accepted transaction amount');
+nativeCheck($nativeInvoice['invoice_id']>0 && $nativeInvoice['invoice_ref']!=='','Checkout creates validated native invoice');
+nativeCheck(strpos($nativeInvoice['payment_url'],'e='.(int) $conf->entity)!==false,'Checkout payment URL preserves entity');
+
+$invoiceCheck=new Facture($db);
+nativeCheck($invoiceCheck->fetch((int) $nativeInvoice['invoice_id'])>0 && (int) $invoiceCheck->socid===$companyId,'Native invoice customer is correct');
+$invoiceCheck->fetch_lines();
+nativeCheck(count($invoiceCheck->lines)===1,'Native checkout invoice has one line');
+nativeCheck((int) $invoiceCheck->lines[0]->fk_product===$productId,'Native invoice line points to native Product');
+nativeCheck(abs((float) $invoiceCheck->lines[0]->subprice-100.0)<0.000001 && abs((float) $invoiceCheck->total_ttc-125.0)<0.000001,'Native invoice line and total amounts are correct');
+
 $tables=array('training_enrollment_commercial','training_seat_hold','training_seat_member','training_course_profile','training_course_version','training_audit','training_session','training_session_slot','training_learner','training_enrollment','training_attendance','training_billing_line','training_billing_allocation','training_trainer','training_trainer_assignment');
 $counts=array(); foreach ($tables as $table) { $counts[$table]=nativeCount($table); }
 nativeCheck(unActivateModule('modTraining',0) === '', 'Native deactivation');

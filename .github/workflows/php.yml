@@ -45,7 +45,14 @@ jobs:
       - name: Verify committed reproducible module archive
         run: |
           test -f dist/module_training-0.8.0.zip
-          echo "Testing the committed shipped archive; CI will not rewrite it"
+          if ! cmp -s dist/module_training-0.8.0.zip /tmp/module_training.zip; then
+            echo "::error::Committed module archive does not match the deterministic build."
+            echo "Rebuild dist/module_training-0.8.0.zip locally and commit the result."
+            exit 1
+          fi
+          echo "Committed module archive matches deterministic build."
+          sha256sum dist/module_training-0.8.0.zip
+          sha256sum /tmp/module_training.zip
       - name: Reproducible installable module
         run: python3 tests/package.py
       - name: Official Dolibarr module descriptor
