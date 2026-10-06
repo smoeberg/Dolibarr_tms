@@ -49,7 +49,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           python3 tools/build_module.py
-          CONTENT="$(base64 -w0 dist/module_training-0.8.0.zip)"
+          export CONTENT="$(base64 -w0 dist/module_training-0.8.0.zip)"
           curl --fail-with-body -sS \
             -X PUT \
             -H "Authorization: Bearer $GH_TOKEN" \
