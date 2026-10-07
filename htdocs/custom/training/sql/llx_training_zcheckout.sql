@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS llx_training_checkout_participant (
     KEY idx_training_checkout_participant_contact (entity, fk_contact),
     KEY idx_training_checkout_participant_learner (entity, fk_learner),
     CONSTRAINT fk_llx_training_checkout_participant_session FOREIGN KEY (entity, fk_checkout_session) REFERENCES llx_training_checkout_session(entity, rowid) ON DELETE CASCADE,
-    CONSTRAINT fk_llx_training_checkout_participant_enrollment FOREIGN KEY (entity, fk_enrollment) REFERENCES llx_training_enrollment(entity, rowid) ON DELETE SET NULL,
+    CONSTRAINT fk_llx_training_checkout_participant_enrollment FOREIGN KEY (entity, fk_enrollment) REFERENCES llx_training_enrollment(entity, rowid),
     CONSTRAINT fk_llx_training_checkout_participant_contact FOREIGN KEY (entity, fk_contact) REFERENCES llx_socpeople(entity, rowid),
     CONSTRAINT fk_llx_training_checkout_participant_learner FOREIGN KEY (entity, fk_learner) REFERENCES llx_training_learner(entity, rowid)
 ) ENGINE=InnoDB;
@@ -94,4 +94,3 @@ CREATE TABLE IF NOT EXISTS llx_training_outbox (
     KEY idx_training_outbox_recipient (entity, recipient_type, recipient_id),
     KEY idx_training_outbox_datec (entity, datec)
 ) ENGINE=InnoDB;
-
