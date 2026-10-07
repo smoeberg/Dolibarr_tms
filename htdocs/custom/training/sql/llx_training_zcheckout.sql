@@ -1,6 +1,5 @@
--- 1.0.0: Checkout workflow tables for Stripe integration.
--- Additive schema: only new tables, no modifications to existing tables.
--- Tables: checkout_session, checkout_participant, checkout_payment, webhook_event, outbox, reconciliation
+-- Native Dolibarr checkout correlation schema.
+-- Payment authority is llx_facture/llx_paiement. No TMS payment ledger or Stripe webhook tables are created.
 
 -- Checkout session: represents a checkout process for a training session
 CREATE TABLE IF NOT EXISTS llx_training_checkout_session (
@@ -14,8 +13,6 @@ CREATE TABLE IF NOT EXISTS llx_training_checkout_session (
     total_amount_ttc decimal(24,8) NOT NULL DEFAULT 0,
     tva_tx decimal(24,8) NOT NULL DEFAULT 0,
     seat_hold_id integer DEFAULT NULL,
-    stripe_payment_intent_id varchar(255) DEFAULT NULL,
-    stripe_customer_id varchar(255) DEFAULT NULL,
     native_commercial_object_type varchar(32) DEFAULT NULL,
     native_commercial_object_id integer DEFAULT NULL,
     native_commercial_object_ref varchar(64) DEFAULT NULL,
@@ -29,7 +26,6 @@ CREATE TABLE IF NOT EXISTS llx_training_checkout_session (
     fk_user_modifier integer NOT NULL,
     PRIMARY KEY (rowid),
     UNIQUE KEY uk_training_checkout_session_entity_id (entity, rowid),
-    UNIQUE KEY uk_training_checkout_stripe_payment_intent (stripe_payment_intent_id),
     KEY idx_training_checkout_session (entity, fk_session),
     KEY idx_training_checkout_status (entity, status),
     KEY idx_training_checkout_seat_hold (entity, seat_hold_id),
@@ -62,67 +58,9 @@ CREATE TABLE IF NOT EXISTS llx_training_checkout_participant (
     KEY idx_training_checkout_participant_contact (entity, fk_contact),
     KEY idx_training_checkout_participant_learner (entity, fk_learner),
     CONSTRAINT fk_llx_training_checkout_participant_session FOREIGN KEY (entity, fk_checkout_session) REFERENCES llx_training_checkout_session(entity, rowid) ON DELETE CASCADE,
-    CONSTRAINT fk_llx_training_checkout_participant_enrollment FOREIGN KEY (fk_enrollment) REFERENCES llx_training_enrollment(rowid) ON DELETE SET NULL,
-    CONSTRAINT fk_llx_training_checkout_participant_contact FOREIGN KEY (fk_contact) REFERENCES llx_socpeople(rowid),
+    CONSTRAINT fk_llx_training_checkout_participant_enrollment FOREIGN KEY (entity, fk_enrollment) REFERENCES llx_training_enrollment(entity, rowid),
+    CONSTRAINT fk_llx_training_checkout_participant_contact FOREIGN KEY (entity, fk_contact) REFERENCES llx_socpeople(entity, rowid),
     CONSTRAINT fk_llx_training_checkout_participant_learner FOREIGN KEY (entity, fk_learner) REFERENCES llx_training_learner(entity, rowid)
-) ENGINE=InnoDB;
-
--- Checkout payment: payment information for a checkout session
-CREATE TABLE IF NOT EXISTS llx_training_checkout_payment (
-    rowid integer NOT NULL AUTO_INCREMENT,
-    entity integer NOT NULL,
-    fk_checkout_session integer NOT NULL,
-    fk_billing_line integer DEFAULT NULL,
-    amount_ht decimal(24,8) NOT NULL,
-    amount_ttc decimal(24,8) NOT NULL,
-    currency varchar(3) NOT NULL DEFAULT 'DKK',
-    stripe_payment_intent_id varchar(255) NOT NULL,
-    stripe_payment_method_id varchar(255) DEFAULT NULL,
-    stripe_charge_id varchar(255) DEFAULT NULL,
-    payment_status varchar(32) NOT NULL DEFAULT 'pending',
-    payment_method_type varchar(32) DEFAULT NULL,
-    receipt_url varchar(512) DEFAULT NULL,
-    failure_reason varchar(255) DEFAULT NULL,
-    metadata_json mediumtext DEFAULT NULL,
-    datec datetime NOT NULL,
-    fk_user_author integer NOT NULL,
-    changed_at datetime NOT NULL,
-    fk_user_modifier integer NOT NULL,
-    PRIMARY KEY (rowid),
-    UNIQUE KEY uk_training_checkout_payment_entity_id (entity, rowid),
-    UNIQUE KEY uk_training_checkout_payment_stripe_intent (stripe_payment_intent_id),
-    KEY idx_training_checkout_payment_session (entity, fk_checkout_session),
-    KEY idx_training_checkout_payment_billing (entity, fk_billing_line),
-    KEY idx_training_checkout_payment_status (entity, payment_status),
-    KEY idx_training_checkout_payment_datec (entity, datec),
-    CONSTRAINT fk_llx_training_checkout_payment_session FOREIGN KEY (entity, fk_checkout_session) REFERENCES llx_training_checkout_session(entity, rowid) ON DELETE CASCADE,
-    CONSTRAINT fk_llx_training_checkout_payment_billing FOREIGN KEY (fk_billing_line) REFERENCES llx_training_billing_line(rowid) ON DELETE SET NULL
-) ENGINE=InnoDB;
-
--- Webhook event: received Stripe webhook events
-CREATE TABLE IF NOT EXISTS llx_training_webhook_event (
-    rowid integer NOT NULL AUTO_INCREMENT,
-    entity integer NOT NULL,
-    event_id varchar(255) NOT NULL,
-    event_type varchar(64) NOT NULL,
-    stripe_object_type varchar(64) NOT NULL,
-    stripe_object_id varchar(255) NOT NULL,
-    payload_json mediumtext NOT NULL,
-    response_status integer DEFAULT NULL,
-    response_body mediumtext DEFAULT NULL,
-    processed tinyint(1) NOT NULL DEFAULT 0,
-    processing_attempts integer NOT NULL DEFAULT 0,
-    last_error varchar(255) DEFAULT NULL,
-    datec datetime NOT NULL,
-    fk_user_author integer NOT NULL,
-    changed_at datetime NOT NULL,
-    fk_user_modifier integer NOT NULL,
-    PRIMARY KEY (rowid),
-    UNIQUE KEY uk_training_webhook_event_id (event_id),
-    KEY idx_training_webhook_event_type (entity, event_type),
-    KEY idx_training_webhook_event_object (entity, stripe_object_type, stripe_object_id),
-    KEY idx_training_webhook_event_processed (entity, processed),
-    KEY idx_training_webhook_event_datec (entity, datec)
 ) ENGINE=InnoDB;
 
 -- Outbox: async processing queue for emails and other notifications
@@ -156,45 +94,3 @@ CREATE TABLE IF NOT EXISTS llx_training_outbox (
     KEY idx_training_outbox_recipient (entity, recipient_type, recipient_id),
     KEY idx_training_outbox_datec (entity, datec)
 ) ENGINE=InnoDB;
-
--- Reconciliation: payment reconciliation records
-CREATE TABLE IF NOT EXISTS llx_training_reconciliation (
-    rowid integer NOT NULL AUTO_INCREMENT,
-    entity integer NOT NULL,
-    fk_checkout_session integer DEFAULT NULL,
-    fk_checkout_payment integer DEFAULT NULL,
-    fk_billing_line integer DEFAULT NULL,
-    fk_enrollment integer DEFAULT NULL,
-    provider varchar(32) NOT NULL DEFAULT 'stripe',
-    provider_ref varchar(255) NOT NULL,
-    amount decimal(24,8) NOT NULL,
-    currency varchar(3) NOT NULL DEFAULT 'DKK',
-    reconciliation_date datetime NOT NULL,
-    status varchar(32) NOT NULL DEFAULT 'pending',
-    notes varchar(255) DEFAULT NULL,
-    metadata_json mediumtext DEFAULT NULL,
-    datec datetime NOT NULL,
-    fk_user_author integer NOT NULL,
-    changed_at datetime NOT NULL,
-    fk_user_modifier integer NOT NULL,
-    PRIMARY KEY (rowid),
-    UNIQUE KEY uk_training_reconciliation_entity_id (entity, rowid),
-    UNIQUE KEY uk_training_reconciliation_provider_ref (provider, provider_ref),
-    KEY idx_training_reconciliation_session (entity, fk_checkout_session),
-    KEY idx_training_reconciliation_payment (entity, fk_checkout_payment),
-    KEY idx_training_reconciliation_billing (entity, fk_billing_line),
-    KEY idx_training_reconciliation_enrollment (entity, fk_enrollment),
-    KEY idx_training_reconciliation_status (entity, status),
-    KEY idx_training_reconciliation_provider_ref_idx (provider_ref),
-    KEY idx_training_reconciliation_datec (entity, datec),
-    CONSTRAINT fk_llx_training_reconciliation_session FOREIGN KEY (fk_checkout_session) REFERENCES llx_training_checkout_session(rowid) ON DELETE SET NULL,
-    CONSTRAINT fk_llx_training_reconciliation_payment FOREIGN KEY (fk_checkout_payment) REFERENCES llx_training_checkout_payment(rowid) ON DELETE SET NULL,
-    CONSTRAINT fk_llx_training_reconciliation_billing FOREIGN KEY (fk_billing_line) REFERENCES llx_training_billing_line(rowid) ON DELETE SET NULL,
-    CONSTRAINT fk_llx_training_reconciliation_enrollment FOREIGN KEY (fk_enrollment) REFERENCES llx_training_enrollment(rowid) ON DELETE SET NULL
-) ENGINE=InnoDB;
-
--- A8 Fase 3 trin 3: additive correlation fields for existing installations.
--- NOTE: `ADD COLUMN IF NOT EXISTS` is MariaDB-only syntax and fails on MySQL 8.0.
--- Fresh installations already get these columns from CREATE TABLE above; legacy
--- upgrades are handled by modTraining::activate() via an information_schema check.
--- See tools: this file must stay MySQL/MariaDB compatible.

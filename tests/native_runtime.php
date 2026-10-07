@@ -194,6 +194,13 @@ nativeCheck(
 nativeCheck(abs($observePaid['paid_amount']-150.0)<0.000001 && $observePaid['payment_id']===$overPaymentId,'Native payment observation records the payment that completed the obligation');
 $observeAgain=$nativeCheckout->observeNativePayment((int) $nativeCheckoutResult['checkout_session_id']);
 nativeCheck($observeAgain['status']==='paiement_present' && $observeAgain['payment_id']===$overPaymentId && abs($observeAgain['paid_amount']-150.0)<0.000001,'Native paiement_present observation is idempotent');
+$finalized=$nativeCheckout->finalizeNativeCheckout((int) $nativeCheckoutResult['checkout_session_id']);
+nativeCheck($finalized['success']===true && $finalized['status']==='completed','Native checkout finalizes only from persisted Dolibarr Paiement');
+nativeCheck(count($finalized['enrollment_ids'])===1,'Native checkout finalizes the participant enrollment');
+$allocationRow=$db->query('SELECT SUM(amount) AS total FROM '.$db->prefix().'training_payment_allocation WHERE entity='.(int)$conf->entity.' AND fk_enrollment='.(int)$finalized['enrollment_ids'][0]);
+nativeCheck($allocationRow && abs((float)$db->fetch_object($allocationRow)->total-125.0)<0.000001,'Native checkout allocates only the enrollment obligation; overpayment remains native accounting truth');
+$finalizedAgain=$nativeCheckout->finalizeNativeCheckout((int) $nativeCheckoutResult['checkout_session_id']);
+nativeCheck($finalizedAgain['status']==='completed' && count($finalizedAgain['enrollment_ids'])===1,'Native checkout finalization is idempotent');
 
 $tables=array('training_enrollment_commercial','training_seat_hold','training_seat_member','training_course_profile','training_course_version','training_audit','training_session','training_session_slot','training_learner','training_enrollment','training_attendance','training_billing_line','training_billing_allocation','training_trainer','training_trainer_assignment');
 $counts=array(); foreach ($tables as $table) { $counts[$table]=nativeCount($table); }

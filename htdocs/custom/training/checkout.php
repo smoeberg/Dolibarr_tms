@@ -6,40 +6,18 @@
  * 1. User selects a session from the catalog
  * 2. User enters participant details
  * 3. Seat hold is created (15 minutes)
- * 4. Stripe PaymentIntent is created
- * 5. User pays via Stripe Elements
- * 6. On success, redirect to success.php
- * 7. On cancel/failure, redirect to cancel.php/failure.php
+ * 4. Native Dolibarr invoice is created
+ * 5. User pays through Dolibarr's native payment flow
+ * 6. TMS observes the persisted native Paiement before confirmation
  */
 
 require_once __DIR__.'/lib/ui.lib.php';
 require_once __DIR__.'/class/trainingcheckoutservice.class.php';
-require_once __DIR__.'/class/trainingstripeadapter.class.php';
 
 $access = trainingAccess();
 $store = new TrainingStore($db, $access);
 
-// Check if Stripe is configured
-if (empty($conf->global->TRAINING_STRIPE_CONFIG)) {
-    llxHeader('', $langs->trans('TrainingCheckout'));
-    print '<div class="error">'.$langs->trans('TrainingStripeNotConfigured').'</div>';
-    llxFooter();
-    $db->close();
-    exit;
-}
-
-$stripeConfig = json_decode($conf->global->TRAINING_STRIPE_CONFIG, true);
-if (empty($stripeConfig['api_key']) || empty($stripeConfig['publishable_key'])) {
-    llxHeader('', $langs->trans('TrainingCheckout'));
-    print '<div class="error">'.$langs->trans('TrainingStripeNotConfigured').'</div>';
-    llxFooter();
-    $db->close();
-    exit;
-}
-
-// Initialize services
-$stripe = new TrainingStripeAdapter($store, $stripeConfig['api_key'], $stripeConfig['webhook_secret']);
-$checkout = new TrainingCheckoutService($store, $stripe);
+$checkout = new TrainingCheckoutService($store);
 
 // ========================================================================
 // STEP 1: SESSION SELECTION
@@ -101,55 +79,31 @@ if ($action === 'submitParticipants' && $sessionId) {
 }
 
 // ========================================================================
-// STEP 4: CREATE PAYMENT INTENT AND SHOW STRIPE ELEMENTS
+// STEP 4: CREATE NATIVE DOLIBARR PAYMENT
 // ========================================================================
 
 if ($action === 'createPayment' && $sessionId) {
     $holdId = GETPOSTINT('hold_id');
-    
     if (!$holdId || empty($_SESSION['training_checkout'])) {
-        header('Location: '.dol_buildpath('/training/checkout.php', 1));
-        exit;
+        header('Location: '.dol_buildpath('/training/checkout.php', 1)); exit;
     }
-    
     try {
         $checkoutData = $_SESSION['training_checkout'];
-        
-        // Verify seat hold is still valid
-        $holds = (new TrainingEnrollmentService($store))->reservations($sessionId);
-        $validHold = null;
-        foreach ($holds as $hold) {
-            if ((int) $hold->rowid === $holdId && $hold->request_key === $checkoutData['reservation_key']) {
-                $validHold = $hold;
-                break;
-            }
-        }
-        
-        if (!$validHold || $validHold->status !== 'active') {
-            unset($_SESSION['training_checkout']);
-            throw new RuntimeException('TrainingCheckoutSeatHoldExpired');
-        }
-        
-        // Create checkout session and get PaymentIntent
-        $result = $checkout->createCheckoutSession(
+        $result = $checkout->createNativeCheckoutSession(
             $sessionId,
             $checkoutData['participants'],
             $checkoutData['reservation_key'],
             $holdId
         );
-        
-        // Show Stripe Elements form
-        showStripePaymentForm($access, $store, $sessionId, $result);
-        exit;
+        unset($_SESSION['training_checkout']);
+        header('Location: '.$result['payment_url']); exit;
     } catch (Throwable $e) {
         unset($_SESSION['training_checkout']);
         $error = trainingError($e);
         llxHeader('', $langs->trans('TrainingCheckout'));
         print '<div class="error">'.$error.'</div>';
         print '<p><a href="'.dol_buildpath('/training/checkout.php', 1).'" class="button">'.$langs->trans('TrainingBackToCheckout').'</a></p>';
-        llxFooter();
-        $db->close();
-        exit;
+        llxFooter(); $db->close(); exit;
     }
 }
 
@@ -276,11 +230,13 @@ function getSessionPriceForStore(TrainingStore $store, int $sessionId): array
     $sql .= ' WHERE s.rowid='.$sessionId.' AND s.entity='.$store->access->entity;
     
     $result = $db->query($sql);
-    if (!$result || !$db->fetch_object($result)) {
+    if (!$result) {
         throw new RuntimeException('Price not found');
     }
-    
     $row = $db->fetch_object($result);
+    if (!$row) {
+        throw new RuntimeException('Price not found');
+    }
     $price = (float) $row->price;
     $tvaTx = (float) $row->tva_tx;
     $currency = $row->currency ?: 'DKK';
@@ -515,113 +471,6 @@ function findOrCreateContact(array $participant): int
         return (int) $row->rowid;
     }
     
-    // Create new contact (we'll need a thirdparty)
-    // For now, return 0 and let the checkout service handle it
-    // In production, you would create a contact here
-    return 0;
+    throw new RuntimeException('TrainingCheckoutExistingBillingContactRequired');
 }
 
-/**
- * Show Stripe Elements payment form.
- */
-function showStripePaymentForm(TrainingAccess $access, TrainingStore $store, int $sessionId, array $checkoutResult): void
-{
-    global $langs, $db, $user, $conf;
-    
-    llxHeader('', $langs->trans('TrainingPayment'));
-    
-    print '<h1>'.$langs->trans('TrainingPayment').'</h1>';
-    print '<p>'.$langs->trans('TrainingCompletePaymentDesc').'</p>';
-    
-    // Session info
-    try {
-        $session = $store->session($sessionId);
-        print '<p><strong>'.$langs->trans('TrainingSession').':</strong> '.trainingEscape($session->ref).' - '.trainingEscape($session->label).'</p>';
-    } catch (Throwable $e) {
-        // Session not found
-    }
-    
-    // Participant info
-    if (!empty($_SESSION['training_checkout']['participants'])) {
-        print '<p><strong>'.$langs->trans('TrainingParticipants').':</strong></p>';
-        print '<ul>';
-        foreach ($_SESSION['training_checkout']['participants'] as $participant) {
-            print '<li>'.trainingEscape($participant['first_name']).' '.trainingEscape($participant['last_name']).'</li>';
-        }
-        print '</ul>';
-    }
-    
-    // Total amount
-    print '<p><strong>'.$langs->trans('TrainingTotalAmount').':</strong> ';
-    print price($checkoutResult['total_amount'] / 100, 1, '', 1, 0, 0, $checkoutResult['currency']);
-    print '</p>';
-    
-    // Stripe Elements form
-    print '<div id="stripePaymentForm">';
-    print '<form id="payment-form">';
-    print '<input type="hidden" id="session_id" value="'.$sessionId.'">';
-    print '<input type="hidden" id="payment_intent_client_secret" value="'.$checkoutResult['payment_intent_client_secret'].'">';
-    print '<input type="hidden" id="checkout_session_id" value="'.$checkoutResult['checkout_session_id'].'">';
-    
-    // Card element
-    print '<div id="card-element"><!-- Stripe Card Element will be inserted here --></div>';
-    print '<div id="card-errors" role="alert"></div>';
-    
-    print '<button id="submit-payment" class="button" disabled>'.$langs->trans('TrainingPayNow').'</button>';
-    print '</form>';
-    print '</div>';
-    
-    print '<p><a href="'.dol_buildpath('/training/checkout.php', 1).'?session_id='.$sessionId.'" class="button">'.$langs->trans('TrainingCancel').'</a></p>';
-    
-    // Load Stripe.js
-    $publishableKey = $conf->global->TRAINING_STRIPE_CONFIG ? json_decode($conf->global->TRAINING_STRIPE_CONFIG, true)['publishable_key'] : '';
-    
-    print '<script src="https://js.stripe.com/v3/"></script>';
-    print '<script>';
-    print 'var stripe = Stripe("'.$publishableKey.'");';
-    print 'var elements = stripe.elements();';
-    print 'var card = elements.create("card");';
-    print 'card.mount("#card-element");';
-    
-    print 'card.addEventListener("change", function(event) {';
-    print '    var displayError = document.getElementById("card-errors");';
-    print '    if (event.error) {';
-    print '        displayError.textContent = event.error.message;';
-    print '        document.getElementById("submit-payment").disabled = true;';
-    print '    } else {';
-    print '        displayError.textContent = "";';
-    print '        document.getElementById("submit-payment").disabled = false;';
-    print '    }';
-    print '});';
-    
-    print 'var form = document.getElementById("payment-form");';
-    print 'form.addEventListener("submit", function(event) {';
-    print '    event.preventDefault();';
-    print '    document.getElementById("submit-payment").disabled = true;';
-    
-    print '    var clientSecret = document.getElementById("payment_intent_client_secret").value;';
-    print '    var checkoutSessionId = document.getElementById("checkout_session_id").value;';
-    print '    var sessionId = document.getElementById("session_id").value;';
-    
-    print '    stripe.confirmCardPayment(clientSecret, {';
-    print '        payment_method: {';
-    print '            card: card';
-    print '        }';
-    print '    }).then(function(result) {';
-    print '        if (result.error) {';
-    print '            document.getElementById("card-errors").textContent = result.error.message;';
-    print '            document.getElementById("submit-payment").disabled = false;';
-    print '        } else {';
-    print '            if (result.paymentIntent.status === "succeeded") {';
-    print '                window.location.href = "'.dol_buildpath('/training/success.php', 1).'?session_id=" + sessionId + "&checkout_session_id=" + checkoutSessionId;';
-    print '            } else {';
-    print '                window.location.href = "'.dol_buildpath('/training/failure.php', 1).'?session_id=" + sessionId;';
-    print '            }';
-    print '        }';
-    print '    });';
-    print '});';
-    print '</script>';
-    
-    llxFooter();
-    $db->close();
-}
