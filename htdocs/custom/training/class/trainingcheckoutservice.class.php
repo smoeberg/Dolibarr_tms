@@ -343,32 +343,91 @@ final class TrainingCheckoutService
         $this->store->access->requireDomain('checkout', 'write');
         $this->store->access->requireContactRead();
         $observed = $this->observeNativePayment($checkoutSessionId);
-        if ($observed['payment_status'] !== 'paid' && $observed['payment_status'] !== 'overpaid') return $observed + array('success'=>false);
-        return $this->store->transaction(function () use ($checkoutSessionId) {
-            $rows=$this->store->rows('SELECT * FROM '.$this->store->table('checkout_session').' WHERE rowid='.$checkoutSessionId.' AND entity='.$this->store->access->entity().' FOR UPDATE');
-            if (!$rows) throw new RuntimeException('TrainingCheckoutSessionNotFound');
-            $checkout=$rows[0];
-            if ((string)$checkout->status==='completed') return array('success'=>true,'checkout_session_id'=>$checkoutSessionId,'status'=>'completed');
-            $participants=$this->store->rows('SELECT * FROM '.$this->store->table('checkout_participant').' WHERE entity='.$this->store->access->entity().' AND fk_checkout_session='.$checkoutSessionId.' ORDER BY rowid FOR UPDATE');
-            if (!$participants) throw new RuntimeException('TrainingCheckoutNoParticipants');
-            $enrollmentIds=array();
-            foreach($participants as $p){
-                $id=(int)$p->fk_enrollment;
-                if($id<1)$id=$this->enrollmentService->confirm((int)$checkout->fk_session,(int)$p->fk_contact);
-                $enrollmentIds[]=$id;
-                $this->store->query('UPDATE '.$this->store->table('checkout_participant').' SET fk_enrollment='.$id.', status='.$this->store->text('confirmed').', changed_at='.$this->store->now().' WHERE rowid='.(int)$p->rowid.' AND entity='.$this->store->access->entity());
+        if ($observed['payment_status'] !== 'paid' && $observed['payment_status'] !== 'overpaid') {
+            return $observed + array('success'=>false);
+        }
+
+        $rows = $this->store->rows(
+            'SELECT * FROM '.$this->store->table('checkout_session').
+            ' WHERE rowid='.$checkoutSessionId.' AND entity='.$this->store->access->entity()
+        );
+        if (!$rows) throw new RuntimeException('TrainingCheckoutSessionNotFound');
+        $checkout = $rows[0];
+        if ((string) $checkout->status === 'completed') {
+            return array('success'=>true, 'checkout_session_id'=>$checkoutSessionId, 'status'=>'completed');
+        }
+
+        $participants = $this->store->rows(
+            'SELECT * FROM '.$this->store->table('checkout_participant').
+            ' WHERE entity='.$this->store->access->entity().
+            ' AND fk_checkout_session='.$checkoutSessionId.' ORDER BY rowid'
+        );
+        if (!$participants) throw new RuntimeException('TrainingCheckoutNoParticipants');
+
+        $enrollmentIds = array();
+        foreach ($participants as $participant) {
+            $enrollmentId = (int) $participant->fk_enrollment;
+            if ($enrollmentId < 1) {
+                $enrollmentId = $this->enrollmentService->confirm((int) $checkout->fk_session, (int) $participant->fk_contact);
+                $this->store->query(
+                    'UPDATE '.$this->store->table('checkout_participant').
+                    ' SET fk_enrollment='.$enrollmentId.', status='.$this->store->text('confirmed').
+                    ', changed_at='.$this->store->now().
+                    ' WHERE rowid='.(int) $participant->rowid.' AND entity='.$this->store->access->entity()
+                );
             }
-            $payments=$this->store->rows('SELECT DISTINCT p.rowid AS payment_id FROM '.$this->store->db->prefix().'paiement p INNER JOIN '.$this->store->db->prefix().'paiement_facture pf ON pf.fk_paiement=p.rowid WHERE p.entity='.$this->store->access->entity().' AND pf.fk_facture='.(int)$checkout->native_commercial_object_id.' ORDER BY p.rowid');
-            foreach($payments as $payment){
-                $remaining=$this->nativePaymentUnallocatedAmount((int)$payment->payment_id); if($remaining<=0.0000001) continue;
-                $map=array();
-                foreach($enrollmentIds as $eid){$balance=$this->paymentBalanceForEnrollment((int)$checkout->fk_session,$eid);if($balance>0.0000001){$amount=min($remaining,$balance);$map[$eid]=number_format($amount,8,'.','');$remaining-=$amount;}if($remaining<=0.0000001)break;}
-                if($map)$this->paymentService()->allocatePayment((int)$checkout->fk_session,(int)$payment->payment_id,$map,'Native Dolibarr checkout payment');
+            $enrollmentIds[] = $enrollmentId;
+        }
+
+        $payments = $this->store->rows(
+            'SELECT DISTINCT p.rowid AS payment_id FROM '.$this->store->db->prefix().'paiement p '.
+            'INNER JOIN '.$this->store->db->prefix().'paiement_facture pf ON pf.fk_paiement=p.rowid '.
+            'WHERE p.entity='.$this->store->access->entity().
+            ' AND pf.fk_facture='.(int) $checkout->native_commercial_object_id.
+            ' ORDER BY p.rowid'
+        );
+        foreach ($payments as $payment) {
+            $remaining = $this->nativePaymentUnallocatedAmount((int) $payment->payment_id);
+            if ($remaining <= 0.0000001) continue;
+            $map = array();
+            foreach ($enrollmentIds as $enrollmentId) {
+                $balance = $this->paymentBalanceForEnrollment((int) $checkout->fk_session, $enrollmentId);
+                if ($balance > 0.0000001) {
+                    $amount = min($remaining, $balance);
+                    $map[$enrollmentId] = number_format($amount, 8, '.', '');
+                    $remaining -= $amount;
+                }
+                if ($remaining <= 0.0000001) break;
             }
-            $this->store->query('UPDATE '.$this->store->table('checkout_session').' SET status='.$this->store->text('completed').', changed_at='.$this->store->now().', fk_user_modifier='.$this->store->access->actor().' WHERE rowid='.$checkoutSessionId.' AND entity='.$this->store->access->entity());
-            $this->enrollmentService->releaseReservation((int)$checkout->fk_session,(int)$checkout->fk_seat_hold,'native_payment_confirmed');
-            return array('success'=>true,'checkout_session_id'=>$checkoutSessionId,'status'=>'completed','enrollment_ids'=>$enrollmentIds);
-        });
+            if ($map) {
+                $this->paymentService()->allocatePayment(
+                    (int) $checkout->fk_session,
+                    (int) $payment->payment_id,
+                    $map,
+                    'Native Dolibarr checkout payment'
+                );
+            }
+        }
+
+        $this->store->query(
+            'UPDATE '.$this->store->table('checkout_session').
+            ' SET status='.$this->store->text('completed').
+            ', changed_at='.$this->store->now().
+            ', fk_user_modifier='.$this->store->access->actor().
+            ' WHERE rowid='.$checkoutSessionId.' AND entity='.$this->store->access->entity()
+        );
+        $this->enrollmentService->releaseReservation(
+            (int) $checkout->fk_session,
+            (int) $checkout->fk_seat_hold,
+            'native_payment_confirmed'
+        );
+
+        return array(
+            'success'=>true,
+            'checkout_session_id'=>$checkoutSessionId,
+            'status'=>'completed',
+            'enrollment_ids'=>$enrollmentIds
+        );
     }
 
     private function nativePaymentUnallocatedAmount(int $paymentId): float
