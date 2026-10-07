@@ -527,41 +527,6 @@ final class TrainingCheckoutService
         }
     }
 
-    private function createStripePaymentIntent(
-        int $checkoutSessionId,
-        int $amount,
-        string $currency,
-        int $sessionId,
-        int $holdId
-    ): array {
-        $metadata = array(
-            'checkout_session_id' => $checkoutSessionId,
-            'session_id' => $sessionId,
-            'hold_id' => $holdId,
-            'module' => 'training'
-        );
-        
-        return $this->stripe->createPaymentIntent(array(
-            'amount' => $amount,
-            'currency' => strtolower($currency),
-            'metadata' => $metadata,
-            'payment_method_types' => array('card'),
-            'capture_method' => 'automatic',
-            'confirm' => false
-        ));
-    }
-
-    private function updateCheckoutSessionPaymentIntent(int $checkoutSessionId, string $paymentIntentId): void
-    {
-        $this->store->query(
-            'UPDATE '.$this->store->table('checkout_session').
-            ' SET stripe_payment_intent_id='.$this->store->text($paymentIntentId).
-            ', changed_at='.$this->store->now().
-            ', fk_user_modifier='.$this->store->access->actor().
-            ' WHERE rowid='.$checkoutSessionId.' AND entity='.$this->store->access->entity()
-        );
-    }
-
     // ========================================================================
     // UTILITY METHODS
     // ========================================================================
