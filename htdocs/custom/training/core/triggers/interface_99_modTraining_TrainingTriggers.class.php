@@ -29,7 +29,8 @@ class InterfaceTrainingTriggers
         $entity = (int) ($object->entity ?? $conf->entity ?? 0);
         if ($invoiceId < 1 || $entity < 1) {
             $this->error = 'TrainingNativePaymentTriggerInvalidInvoice';
-            return -1;
+            dol_syslog(__METHOD__.': invalid invoice context', LOG_ERR);
+            return 0;
         }
 
         $checkoutTable = $this->db->prefix().'training_checkout_session';
@@ -50,7 +51,8 @@ class InterfaceTrainingTriggers
         $result = $this->db->query($sql);
         if (!$result) {
             $this->error = 'TrainingNativePaymentTriggerLookupFailed';
-            return -1;
+            dol_syslog(__METHOD__.': failed to resolve paid invoice checkout correlation', LOG_ERR);
+            return 0;
         }
 
         while ($row = $this->db->fetch_object($result)) {
@@ -66,7 +68,10 @@ class InterfaceTrainingTriggers
             $insert .= ' ON DUPLICATE KEY UPDATE changed_at = changed_at';
             if (!$this->db->query($insert)) {
                 $this->error = 'TrainingNativePaymentTriggerQueueFailed';
-                return -1;
+                dol_syslog(__METHOD__.': failed to persist checkout queue item for invoice '.$invoiceId, LOG_ERR);
+                // Do not roll back Dolibarr's authoritative payment transaction.
+                // The worker's reconciliation query will recover a missed item.
+                return 0;
             }
         }
 
