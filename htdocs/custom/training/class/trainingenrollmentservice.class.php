@@ -101,6 +101,12 @@ final class TrainingEnrollmentService
         if (trim($reason) === '' || strlen($reason) > 2000) { throw new InvalidArgumentException('TrainingReservationReasonRequired'); }
         return trim($reason);
     }
+    /** Expose seat members (with enrollment mapping) for hold conversion flows. */
+    public function reservationMembers(int $sessionId, int $holdId): array {
+        $this->allow('read'); $this->s->access->requireContactRead();
+        $this->seatHold($sessionId, $holdId);
+        return $this->seatMembers($holdId);
+    }
     public function reservations(int $sessionId): array {
         $this->allow('read'); $this->s->access->requireContactRead(); $this->s->session($sessionId);
         $at = $this->s->decisionTime();

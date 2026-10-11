@@ -364,11 +364,25 @@ final class TrainingCheckoutService
         );
         if (!$participants) throw new RuntimeException('TrainingCheckoutNoParticipants');
 
+        // Convert the checkout's seat hold into enrollments (idempotent: a
+        // converted hold returns the member -> enrollment mapping unchanged).
+        // confirm() per participant is not usable here: it rejects contacts
+        // with an active seat hold (TrainingParticipantReserved), which the
+        // checkout session itself created.
+        $holdId = (int) $checkout->fk_seat_hold;
+        $this->enrollmentService->confirmReservation((int) $checkout->fk_session, $holdId, 'native_checkout_finalize');
+        $memberMap = array();
+        foreach ($this->enrollmentService->reservationMembers((int) $checkout->fk_session, $holdId) as $member) {
+            if ((int) $member->fk_enrollment > 0) { $memberMap[(int) $member->fk_socpeople] = (int) $member->fk_enrollment; }
+        }
+
         $enrollmentIds = array();
         foreach ($participants as $participant) {
             $enrollmentId = (int) $participant->fk_enrollment;
             if ($enrollmentId < 1) {
-                $enrollmentId = $this->enrollmentService->confirm((int) $checkout->fk_session, (int) $participant->fk_contact);
+                $contactId = (int) $participant->fk_contact;
+                if (isset($memberMap[$contactId])) { $enrollmentId = $memberMap[$contactId]; }
+                else { $enrollmentId = $this->enrollmentService->confirm((int) $checkout->fk_session, $contactId); }
                 $this->store->query(
                     'UPDATE '.$this->store->table('checkout_participant').
                     ' SET fk_enrollment='.$enrollmentId.', status='.$this->store->text('confirmed').
