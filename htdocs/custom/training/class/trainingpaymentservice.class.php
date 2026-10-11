@@ -24,7 +24,6 @@ final class TrainingPaymentService
     private function allow(string $right): void {
         $this->s->access->requireDomain('session', 'read');
         $this->s->access->requireDomain('billing', $right);
-        $this->s->access->requirePaymentRead();
         $this->s->access->requireContactRead();
     }
 
