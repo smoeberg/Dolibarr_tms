@@ -192,6 +192,10 @@ nativeCheck(
     'Cumulative native Paiement advances to paiement_present and records overpayment (got status='.$observePaid['status'].' payment_status='.$observePaid['payment_status'].' paid='.$observePaid['paid_amount'].' required='.$observePaid['required_amount'].')'
 );
 nativeCheck(abs($observePaid['paid_amount']-150.0)<0.000001 && $observePaid['payment_id']===$overPaymentId,'Native payment observation records the payment that completed the obligation');
+$queuedNativeCheckout=$db->query('SELECT rowid, status, fk_invoice FROM '.$db->prefix().'training_native_payment_queue WHERE entity='.(int)$conf->entity.' AND fk_checkout_session='.(int)$nativeCheckoutResult['checkout_session_id']);
+nativeCheck((bool)$queuedNativeCheckout,'Paid native invoice creates a durable checkout-finalization queue item');
+$queuedNativeCheckoutRow=$db->fetch_object($queuedNativeCheckout);
+nativeCheck($queuedNativeCheckoutRow && $queuedNativeCheckoutRow->status==='pending' && (int)$queuedNativeCheckoutRow->fk_invoice===$checkoutInvoiceId,'Payment trigger queues the correlated invoice exactly once for the worker');
 $observeAgain=$nativeCheckout->observeNativePayment((int) $nativeCheckoutResult['checkout_session_id']);
 nativeCheck($observeAgain['status']==='paiement_present' && $observeAgain['payment_id']===$overPaymentId && abs($observeAgain['paid_amount']-150.0)<0.000001,'Native paiement_present observation is idempotent');
 $finalized=$nativeCheckout->finalizeNativeCheckout((int) $nativeCheckoutResult['checkout_session_id']);
@@ -202,7 +206,7 @@ nativeCheck($allocationRow && abs((float)$db->fetch_object($allocationRow)->tota
 $finalizedAgain=$nativeCheckout->finalizeNativeCheckout((int) $nativeCheckoutResult['checkout_session_id']);
 nativeCheck($finalizedAgain['status']==='completed' && count($finalizedAgain['enrollment_ids'])===1,'Native checkout finalization is idempotent');
 
-$tables=array('training_enrollment_commercial','training_seat_hold','training_seat_member','training_course_profile','training_course_version','training_audit','training_session','training_session_slot','training_learner','training_enrollment','training_attendance','training_billing_line','training_billing_allocation','training_trainer','training_trainer_assignment');
+$tables=array('training_enrollment_commercial','training_seat_hold','training_seat_member','training_course_profile','training_course_version','training_audit','training_session','training_session_slot','training_learner','training_enrollment','training_attendance','training_billing_line','training_billing_allocation','training_native_payment_queue','training_trainer','training_trainer_assignment');
 $counts=array(); foreach ($tables as $table) { $counts[$table]=nativeCount($table); }
 nativeCheck(unActivateModule('modTraining',0) === '', 'Native deactivation');
 $conf->setValues($db);
