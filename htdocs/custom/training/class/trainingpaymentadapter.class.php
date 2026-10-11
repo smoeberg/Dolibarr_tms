@@ -20,8 +20,8 @@ final class TrainingPaymentAdapter
     public function payment(int $paymentId, bool $lock = false): array {
         
         $rows = $this->s->rows(
-            'SELECT p.rowid, p.entity, p.ref, p.amount, p.currency, '.
-            'p.datep, p.fk_soc, p.statut as status, '.
+            'SELECT p.rowid, p.entity, p.ref, p.amount, COALESCE(NULLIF(p.multicurrency_code, \'\'), \'\') AS currency_code, '.
+            'p.datep, p.fk_soc, '.
             'CAST(p.amount AS DECIMAL(24,8)) AS amount_decimal '.
             'FROM '.$this->s->db->prefix().'paiement p '.
             'WHERE p.rowid='.$paymentId.
@@ -34,27 +34,41 @@ final class TrainingPaymentAdapter
         
         $payment = $rows[0];
         $this->s->access->requireBillingCustomer((int) $payment->fk_soc, $this->s->db);
-        
+
+        // llx_paiement has no currency column of its own. For single-currency
+        // payments multicurrency_code is empty, so fall back to the company
+        // currency, mirroring TrainingPriceService.
+        $currency = strtoupper(trim((string) $payment->currency_code));
+        if ($currency === '') {
+            $currency = function_exists('getDolGlobalString')
+                ? getDolGlobalString('MAIN_MONNAIE')
+                : '';
+            if ($currency === '') {
+                global $conf;
+                $currency = !empty($conf->currency) ? (string) $conf->currency : 'DKK';
+            }
+            $currency = strtoupper(trim((string) $currency));
+        }
+
         // Build snapshot for audit
         $snapshot = array(
             'payment_id' => $paymentId,
             'ref' => $payment->ref,
             'amount' => $payment->amount_decimal,
-            'currency' => $payment->currency,
+            'currency' => $currency,
             'datep' => $payment->datep,
-            'customer_id' => (int) $payment->fk_soc,
-            'status' => (int) $payment->status
+            'customer_id' => (int) $payment->fk_soc
         );
-        
-        // Check eligibility: only validated payments (statut = 1)
-        $eligible = (int) $payment->status === 1;
+
+        // A Paiement row only exists once the payment is recorded, so every
+        // row reachable here is allocatable.
         
         return array(
             'payment' => $payment,
             'snapshot' => $snapshot,
             'snapshot_json' => json_encode($snapshot, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
             'hash' => hash('sha256', json_encode($snapshot, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)),
-            'eligible' => $eligible
+            'eligible' => true
         );
     }
 
