@@ -20,7 +20,7 @@ final class TrainingOrderService
 
     private function allow(string $right): void {
         $this->s->access->requireDomain('session', 'read');
-        $this->s->access->requireDomain('order', $right);
+        $this->s->access->requireDomain('billing', $right);
         $this->s->access->requireOrderRead();
         $this->s->access->requireContactRead();
     }
@@ -243,7 +243,7 @@ final class TrainingOrderService
             }
             
             if ($mapping) {
-                $this->s->access->requireDomain('order', 'correct');
+                $this->s->access->requireDomain('billing', 'correct');
                 if (trim($reason) === '' || strlen($reason) > 2000) {
                     throw new InvalidArgumentException('TrainingOrderReasonRequired');
                 }
@@ -312,7 +312,7 @@ final class TrainingOrderService
      */
     public function voidLine(int $sessionId, int $orderId, int $lineId, int $expectedRevision, string $reason): array {
         $this->allow('write');
-        $this->s->access->requireDomain('order', 'correct');
+        $this->s->access->requireDomain('billing', 'correct');
         if (trim($reason) === '' || strlen($reason) > 2000) {
             throw new InvalidArgumentException('TrainingOrderReasonRequired');
         }

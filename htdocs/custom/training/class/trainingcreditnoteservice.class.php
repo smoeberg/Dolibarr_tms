@@ -23,7 +23,7 @@ final class TrainingCreditNoteService
 
     private function allow(string $right): void {
         $this->s->access->requireDomain('session', 'read');
-        $this->s->access->requireDomain('creditnote', $right);
+        $this->s->access->requireDomain('billing', $right);
         $this->s->access->requireInvoiceRead();
         $this->s->access->requireContactRead();
     }
@@ -293,7 +293,7 @@ final class TrainingCreditNoteService
      */
     public function adjustAllocation(int $sessionId, int $creditNoteId, int $allocationId, string $newAmount, string $reason): array {
         $this->allow('write');
-        $this->s->access->requireDomain('creditnote', 'correct');
+        $this->s->access->requireDomain('billing', 'correct');
         
         if (trim($reason) === '' || strlen($reason) > 2000) {
             throw new InvalidArgumentException('TrainingCreditNoteReasonRequired');
@@ -394,7 +394,7 @@ final class TrainingCreditNoteService
      */
     public function removeAllocation(int $sessionId, int $creditNoteId, int $allocationId, string $reason): void {
         $this->allow('write');
-        $this->s->access->requireDomain('creditnote', 'correct');
+        $this->s->access->requireDomain('billing', 'correct');
         
         if (trim($reason) === '' || strlen($reason) > 2000) {
             throw new InvalidArgumentException('TrainingCreditNoteReasonRequired');

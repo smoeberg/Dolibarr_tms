@@ -342,19 +342,34 @@ final class TrainingCheckoutService
     {
         $this->store->access->requireDomain('checkout', 'write');
         $this->store->access->requireContactRead();
-        $observed = $this->observeNativePayment($checkoutSessionId);
-        if ($observed['payment_status'] !== 'paid' && $observed['payment_status'] !== 'overpaid') {
-            return $observed + array('success'=>false);
-        }
 
-        $rows = $this->store->rows(
+        // Idempotency: an already-completed checkout is finalized by definition,
+        // and observeNativePayment() rejects terminal statuses other than
+        // paiement_present, so the completed state must be checked here first.
+        $preRows = $this->store->rows(
             'SELECT * FROM '.$this->store->table('checkout_session').
             ' WHERE rowid='.$checkoutSessionId.' AND entity='.$this->store->access->entity()
         );
-        if (!$rows) throw new RuntimeException('TrainingCheckoutSessionNotFound');
-        $checkout = $rows[0];
-        if ((string) $checkout->status === 'completed') {
-            return array('success'=>true, 'checkout_session_id'=>$checkoutSessionId, 'status'=>'completed');
+        if (!$preRows) throw new RuntimeException('TrainingCheckoutSessionNotFound');
+        if ((string) $preRows[0]->status === 'completed') {
+            $preParticipants = $this->store->rows(
+                'SELECT fk_enrollment FROM '.$this->store->table('checkout_participant').
+                ' WHERE entity='.$this->store->access->entity().
+                ' AND fk_checkout_session='.$checkoutSessionId.' ORDER BY rowid'
+            );
+            return array(
+                'success'=>true,
+                'checkout_session_id'=>$checkoutSessionId,
+                'status'=>'completed',
+                'enrollment_ids'=>array_values(array_filter(array_map('intval', array_map(function ($p) {
+                    return (int) $p->fk_enrollment;
+                }, $preParticipants)), function ($id) { return $id > 0; }))
+            );
+        }
+
+        $observed = $this->observeNativePayment($checkoutSessionId);
+        if ($observed['payment_status'] !== 'paid' && $observed['payment_status'] !== 'overpaid') {
+            return $observed + array('success'=>false);
         }
 
         $participants = $this->store->rows(
@@ -430,11 +445,10 @@ final class TrainingCheckoutService
             ', fk_user_modifier='.$this->store->access->actor().
             ' WHERE rowid='.$checkoutSessionId.' AND entity='.$this->store->access->entity()
         );
-        $this->enrollmentService->releaseReservation(
-            (int) $checkout->fk_session,
-            (int) $checkout->seat_hold_id,
-            'native_payment_confirmed'
-        );
+        // No releaseReservation() here: confirmReservation() above has already
+        // converted the hold, and releasing a converted hold is an invalid
+        // transition per ARCH-01. The hold's conversion (not a release) is the
+        // terminal state of a paid checkout.
 
         return array(
             'success'=>true,
