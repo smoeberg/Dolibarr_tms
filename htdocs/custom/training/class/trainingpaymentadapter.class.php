@@ -49,25 +49,6 @@ final class TrainingPaymentAdapter
             throw new RuntimeException('TrainingPaymentNotAccessible');
         }
 
-        $customerIds = array();
-        $currencies = array();
-        foreach ($invoiceRows as $invoice) {
-            $customerId = (int) $invoice->fk_soc;
-            $this->s->access->requireBillingCustomer($customerId, $this->s->db);
-            $customerIds[$customerId] = true;
-            $code = strtoupper(trim((string) $invoice->currency_code));
-            if ($code !== '') {
-                $currencies[$code] = true;
-            }
-        }
-
-        // A single native payment cannot safely be allocated using one currency
-        // if its linked invoices disagree on currency or customer.
-        if (count($customerIds) !== 1 || count($currencies) > 1) {
-            throw new RuntimeException('TrainingPaymentAmbiguousInvoiceContext');
-        }
-
-        $customerId = (int) array_key_first($customerIds);
         $companyCurrency = '';
         if (function_exists('getDolGlobalString')) {
             $companyCurrency = (string) getDolGlobalString('MAIN_MONNAIE');
@@ -77,7 +58,25 @@ final class TrainingPaymentAdapter
             $companyCurrency = !empty($conf->currency) ? (string) $conf->currency : 'DKK';
         }
         $companyCurrency = strtoupper(trim($companyCurrency));
-        $currency = count($currencies) ? (string) array_key_first($currencies) : $companyCurrency;
+
+        $customerIds = array();
+        $currencies = array();
+        foreach ($invoiceRows as $invoice) {
+            $customerId = (int) $invoice->fk_soc;
+            $this->s->access->requireBillingCustomer($customerId, $this->s->db);
+            $customerIds[$customerId] = true;
+            $code = strtoupper(trim((string) $invoice->currency_code));
+            $currencies[$code !== '' ? $code : $companyCurrency] = true;
+        }
+
+        // A single native payment cannot safely be allocated using one currency
+        // if its linked invoices disagree on currency or customer.
+        if (count($customerIds) !== 1 || count($currencies) > 1) {
+            throw new RuntimeException('TrainingPaymentAmbiguousInvoiceContext');
+        }
+
+        $customerId = (int) array_key_first($customerIds);
+        $currency = (string) array_key_first($currencies);
         $amount = ($currency !== $companyCurrency && (float) $payment->multicurrency_amount > 0)
             ? (string) $payment->multicurrency_amount
             : (string) $payment->amount;
