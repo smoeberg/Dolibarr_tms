@@ -171,7 +171,9 @@ $createNativePayment=function(float $amount) use ($db,$user,$checkoutInvoiceId):
     $payment->amounts=array($checkoutInvoiceId => $amount);
     $payment->paiementid=(int) $method->id;
     $payment->note='A8 native payment CI';
-    $paymentId=$payment->create($user, 0, null);
+    // Let Dolibarr close an invoice when cumulative payments cover it; this is
+    // the native path that sets facture.paye and dispatches BILL_PAYED.
+    $paymentId=$payment->create($user, 1, null);
     nativeCheck($paymentId>0,'Native Paiement created: '.$payment->error);
     return (int) $paymentId;
 };
@@ -186,6 +188,8 @@ nativeCheck(
 nativeCheck(abs($observePartial['paid_amount']-100.0)<0.000001 && $observePartial['payment_id']===$partialPaymentId,'Partial native payment amount and identity are observed');
 $partialQueue=$db->query('SELECT rowid FROM '.$db->prefix().'training_native_payment_queue WHERE entity='.(int)$conf->entity.' AND fk_checkout_session='.(int)$nativeCheckoutResult['checkout_session_id']);
 nativeCheck($partialQueue && !$db->fetch_object($partialQueue),'Partial native payment does not enqueue checkout finalization');
+$invoiceAfterPartial=$db->query('SELECT paye FROM '.$db->prefix().'facture WHERE rowid='.$checkoutInvoiceId);
+nativeCheck($invoiceAfterPartial && (int) $db->fetch_object($invoiceAfterPartial)->paye===0,'Dolibarr keeps invoice unpaid after a partial payment');
 
 $overPaymentId=$createNativePayment(50.00);
 $observePaid=$nativeCheckout->observeNativePayment((int) $nativeCheckoutResult['checkout_session_id']);
@@ -194,6 +198,8 @@ nativeCheck(
     'Cumulative native Paiement advances to paiement_present and records overpayment (got status='.$observePaid['status'].' payment_status='.$observePaid['payment_status'].' paid='.$observePaid['paid_amount'].' required='.$observePaid['required_amount'].')'
 );
 nativeCheck(abs($observePaid['paid_amount']-150.0)<0.000001 && $observePaid['payment_id']===$overPaymentId,'Native payment observation records the payment that completed the obligation');
+$invoiceAfterFullPayment=$db->query('SELECT paye FROM '.$db->prefix().'facture WHERE rowid='.$checkoutInvoiceId);
+nativeCheck($invoiceAfterFullPayment && (int) $db->fetch_object($invoiceAfterFullPayment)->paye===1,'Dolibarr marks invoice paid when cumulative native payments cover the obligation');
 $queuedNativeCheckout=$db->query('SELECT rowid, status, fk_invoice FROM '.$db->prefix().'training_native_payment_queue WHERE entity='.(int)$conf->entity.' AND fk_checkout_session='.(int)$nativeCheckoutResult['checkout_session_id']);
 nativeCheck((bool)$queuedNativeCheckout,'Paid native invoice creates a durable checkout-finalization queue item');
 $queuedNativeCheckoutRow=$db->fetch_object($queuedNativeCheckout);
