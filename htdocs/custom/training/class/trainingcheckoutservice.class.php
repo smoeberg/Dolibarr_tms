@@ -351,6 +351,7 @@ final class TrainingCheckoutService
             ' WHERE rowid='.$checkoutSessionId.' AND entity='.$this->store->access->entity()
         );
         if (!$preRows) throw new RuntimeException('TrainingCheckoutSessionNotFound');
+        $checkout = $preRows[0];
         if ((string) $preRows[0]->status === 'completed') {
             $preParticipants = $this->store->rows(
                 'SELECT fk_enrollment FROM '.$this->store->table('checkout_participant').
@@ -372,6 +373,12 @@ final class TrainingCheckoutService
             return $observed + array('success'=>false);
         }
 
+        $rows = $this->store->rows(
+            'SELECT * FROM '.$this->store->table('checkout_session').
+            ' WHERE rowid='.$checkoutSessionId.' AND entity='.$this->store->access->entity()
+        );
+        if (!$rows) throw new RuntimeException('TrainingCheckoutSessionNotFound');
+        $checkout = $rows[0];
         $participants = $this->store->rows(
             'SELECT * FROM '.$this->store->table('checkout_participant').
             ' WHERE entity='.$this->store->access->entity().
