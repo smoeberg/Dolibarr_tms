@@ -40,6 +40,24 @@ $queueTable = $db->prefix().'training_native_payment_queue';
 $now = $db->idate(dol_now());
 $escapedNow = $db->escape($now);
 
+// Reconcile missed trigger writes. Native invoice/payment recording must not
+// be rolled back just because a TMS queue insert failed inside the trigger.
+$checkoutTable = $db->prefix().'training_checkout_session';
+$invoiceTable = $db->prefix().'facture';
+$reconcileSql = 'INSERT INTO '.$queueTable;
+$reconcileSql .= ' (entity, fk_checkout_session, fk_invoice, status, attempts, datec, changed_at)';
+$reconcileSql .= " SELECT c.entity, c.rowid, c.native_commercial_object_id, 'pending', 0, '".$escapedNow."', '".$escapedNow."'";
+$reconcileSql .= ' FROM '.$checkoutTable.' c INNER JOIN '.$invoiceTable.' f';
+$reconcileSql .= ' ON f.rowid = c.native_commercial_object_id AND f.entity = c.entity';
+$reconcileSql .= ' WHERE c.entity = '.$entity." AND c.native_commercial_object_type = 'invoice'";
+$reconcileSql .= " AND c.status IN ('payment_redirected', 'paiement_present') AND f.paye = 1";
+$reconcileSql .= ' AND NOT EXISTS (SELECT 1 FROM '.$queueTable.' q';
+$reconcileSql .= ' WHERE q.entity = c.entity AND q.fk_checkout_session = c.rowid)';
+if (!$db->query($reconcileSql)) {
+    fwrite(STDERR, "Could not reconcile paid native invoices into the checkout queue.\\n");
+    exit(3);
+}
+
 // Recover work abandoned by a worker crash. A claimed item is only eligible
 // after its lease has expired, so two live workers do not intentionally race.
 $recoverExhaustedSql = 'UPDATE '.$queueTable;
