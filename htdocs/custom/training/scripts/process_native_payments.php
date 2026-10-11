@@ -42,9 +42,18 @@ $escapedNow = $db->escape($now);
 
 // Recover work abandoned by a worker crash. A claimed item is only eligible
 // after its lease has expired, so two live workers do not intentionally race.
+$recoverExhaustedSql = 'UPDATE '.$queueTable;
+$recoverExhaustedSql .= " SET status = 'failed', last_error = 'Worker lease expired after retry limit', changed_at = '".$escapedNow."'";
+$recoverExhaustedSql .= " WHERE entity = ".$entity." AND status = 'processing' AND attempts >= 5";
+$recoverExhaustedSql .= ' AND changed_at < DATE_SUB(NOW(), INTERVAL 15 MINUTE)';
+if (!$db->query($recoverExhaustedSql)) {
+    fwrite(STDERR, "Could not close exhausted native-payment queue items.\n");
+    exit(3);
+}
+
 $recoverSql = 'UPDATE '.$queueTable;
 $recoverSql .= " SET status = 'pending', changed_at = '".$escapedNow."'";
-$recoverSql .= " WHERE entity = ".$entity." AND status = 'processing'";
+$recoverSql .= " WHERE entity = ".$entity." AND status = 'processing' AND attempts < 5";
 $recoverSql .= ' AND changed_at < DATE_SUB(NOW(), INTERVAL 15 MINUTE)';
 if (!$db->query($recoverSql)) {
     fwrite(STDERR, "Could not recover abandoned native-payment queue items.\n");
