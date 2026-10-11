@@ -96,7 +96,8 @@ if ($action === 'createPayment' && $sessionId) {
             $holdId
         );
         unset($_SESSION['training_checkout']);
-        header('Location: '.$result['payment_url']); exit;
+        $paymentUrl = $checkout->prepareNativePaymentRedirect((int) $result['checkout_session_id']);
+        header('Location: '.$paymentUrl); exit;
     } catch (Throwable $e) {
         unset($_SESSION['training_checkout']);
         $error = trainingError($e);
