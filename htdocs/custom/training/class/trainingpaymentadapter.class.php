@@ -17,57 +17,90 @@ final class TrainingPaymentAdapter
      * Get payment details.
      * Returns validated standard payment data.
      */
-    public function payment(int $paymentId, bool $lock = false): array {
-        
+    public function payment(int $paymentId, bool $lock = false): array
+    {
+        $entity = $this->s->access->entity();
         $rows = $this->s->rows(
-            'SELECT p.rowid, p.entity, p.ref, p.amount, COALESCE(NULLIF(p.multicurrency_code, \'\'), \'\') AS currency_code, '.
-            'p.datep, p.fk_soc, '.
-            'CAST(p.amount AS DECIMAL(24,8)) AS amount_decimal '.
+            'SELECT p.rowid, p.entity, p.ref, p.amount, p.multicurrency_amount, p.datep '.
             'FROM '.$this->s->db->prefix().'paiement p '.
-            'WHERE p.rowid='.$paymentId.
+            'WHERE p.rowid='.$paymentId.' AND p.entity='.$entity.
             ($lock ? ' FOR UPDATE' : '')
         );
-        
+
         if (!$rows) {
             throw new RuntimeException('TrainingPaymentNotAccessible');
         }
-        
-        $payment = $rows[0];
-        $this->s->access->requireBillingCustomer((int) $payment->fk_soc, $this->s->db);
 
-        // llx_paiement has no currency column of its own. For single-currency
-        // payments multicurrency_code is empty, so fall back to the company
-        // currency, mirroring TrainingPriceService.
-        $currency = strtoupper(trim((string) $payment->currency_code));
-        if ($currency === '') {
-            $currency = function_exists('getDolGlobalString')
-                ? getDolGlobalString('MAIN_MONNAIE')
-                : '';
-            if ($currency === '') {
-                global $conf;
-                $currency = !empty($conf->currency) ? (string) $conf->currency : 'DKK';
-            }
-            $currency = strtoupper(trim((string) $currency));
+        $payment = $rows[0];
+
+        // Dolibarr 24.0.2 stores customer and currency context on the invoice
+        // allocation (paiement_facture), not on llx_paiement. Resolve it through
+        // the native payment -> invoice relation and scope both sides to entity.
+        $invoiceRows = $this->s->rows(
+            'SELECT f.rowid AS invoice_id, f.fk_soc, '.
+            "COALESCE(NULLIF(pf.multicurrency_code, ''), NULLIF(f.multicurrency_code, ''), '') AS currency_code ".
+            'FROM '.$this->s->db->prefix().'paiement_facture pf '.
+            'INNER JOIN '.$this->s->db->prefix().'facture f ON f.rowid=pf.fk_facture AND f.entity='.$entity.' '.
+            'WHERE pf.fk_paiement='.$paymentId.
+            ' ORDER BY f.rowid'.
+            ($lock ? ' FOR UPDATE' : '')
+        );
+        if (!$invoiceRows) {
+            throw new RuntimeException('TrainingPaymentNotAccessible');
         }
 
-        // Build snapshot for audit
+        $customerIds = array();
+        $currencies = array();
+        foreach ($invoiceRows as $invoice) {
+            $customerId = (int) $invoice->fk_soc;
+            $this->s->access->requireBillingCustomer($customerId, $this->s->db);
+            $customerIds[$customerId] = true;
+            $code = strtoupper(trim((string) $invoice->currency_code));
+            if ($code !== '') {
+                $currencies[$code] = true;
+            }
+        }
+
+        // A single native payment cannot safely be allocated using one currency
+        // if its linked invoices disagree on currency or customer.
+        if (count($customerIds) !== 1 || count($currencies) > 1) {
+            throw new RuntimeException('TrainingPaymentAmbiguousInvoiceContext');
+        }
+
+        $customerId = (int) array_key_first($customerIds);
+        $companyCurrency = '';
+        if (function_exists('getDolGlobalString')) {
+            $companyCurrency = (string) getDolGlobalString('MAIN_MONNAIE');
+        }
+        if ($companyCurrency === '') {
+            global $conf;
+            $companyCurrency = !empty($conf->currency) ? (string) $conf->currency : 'DKK';
+        }
+        $companyCurrency = strtoupper(trim($companyCurrency));
+        $currency = count($currencies) ? (string) array_key_first($currencies) : $companyCurrency;
+        $amount = ($currency !== $companyCurrency && (float) $payment->multicurrency_amount > 0)
+            ? (string) $payment->multicurrency_amount
+            : (string) $payment->amount;
+
+        // Preserve the customer context expected by allocation persistence. This
+        // is derived from the native invoice relation; llx_paiement has no fk_soc.
+        $payment->fk_soc = $customerId;
+
         $snapshot = array(
             'payment_id' => $paymentId,
             'ref' => $payment->ref,
-            'amount' => $payment->amount_decimal,
+            'amount' => number_format((float) $amount, 8, '.', ''),
             'currency' => $currency,
             'datep' => $payment->datep,
-            'customer_id' => (int) $payment->fk_soc
+            'customer_id' => $customerId
         );
+        $snapshotJson = json_encode($snapshot, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
 
-        // A Paiement row only exists once the payment is recorded, so every
-        // row reachable here is allocatable.
-        
         return array(
             'payment' => $payment,
             'snapshot' => $snapshot,
-            'snapshot_json' => json_encode($snapshot, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
-            'hash' => hash('sha256', json_encode($snapshot, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)),
+            'snapshot_json' => $snapshotJson,
+            'hash' => hash('sha256', $snapshotJson),
             'eligible' => true
         );
     }
