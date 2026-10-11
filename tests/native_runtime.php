@@ -184,6 +184,8 @@ nativeCheck(
     'Partial native Paiement does not advance checkout state (got status='.$observePartial['status'].' payment_status='.$observePartial['payment_status'].' paid='.$observePartial['paid_amount'].' required='.$observePartial['required_amount'].')'
 );
 nativeCheck(abs($observePartial['paid_amount']-100.0)<0.000001 && $observePartial['payment_id']===$partialPaymentId,'Partial native payment amount and identity are observed');
+$partialQueue=$db->query('SELECT rowid FROM '.$db->prefix().'training_native_payment_queue WHERE entity='.(int)$conf->entity.' AND fk_checkout_session='.(int)$nativeCheckoutResult['checkout_session_id']);
+nativeCheck($partialQueue && !$db->fetch_object($partialQueue),'Partial native payment does not enqueue checkout finalization');
 
 $overPaymentId=$createNativePayment(50.00);
 $observePaid=$nativeCheckout->observeNativePayment((int) $nativeCheckoutResult['checkout_session_id']);
