@@ -18,7 +18,6 @@ final class TrainingPaymentAdapter
      * Returns validated standard payment data.
      */
     public function payment(int $paymentId, bool $lock = false): array {
-        $this->s->access->requirePaymentRead();
         
         $rows = $this->s->rows(
             'SELECT p.rowid, p.entity, p.ref, p.amount, p.currency, '.
@@ -63,7 +62,6 @@ final class TrainingPaymentAdapter
      * Get payment by enrollment (for existing allocations).
      */
     public function paymentForEnrollment(int $enrollmentId): array {
-        $this->s->access->requirePaymentRead();
         
         $rows = $this->s->rows(
             'SELECT pa.fk_paiement, pa.amount, pa.currency, pa.datec '.
@@ -90,7 +88,6 @@ final class TrainingPaymentAdapter
      * Get total allocated amount for an enrollment.
      */
     public function allocatedAmount(int $enrollmentId): array {
-        $this->s->access->requirePaymentRead();
         
         $rows = $this->s->rows(
             'SELECT currency, SUM(amount) as total_amount '.
@@ -112,7 +109,6 @@ final class TrainingPaymentAdapter
      * Get total allocated amount for a session.
      */
     public function sessionAllocatedAmount(int $sessionId): array {
-        $this->s->access->requirePaymentRead();
         
         $rows = $this->s->rows(
             'SELECT currency, SUM(pa.amount) as total_amount '.
