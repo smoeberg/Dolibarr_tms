@@ -16,8 +16,19 @@ function rejects(callable $fn, string $key): void {
 class TestUser {
     public $id = 7;
     public $socid = 0;
-    public array $rights = array('read', 'write', 'publish', 'lire');
-    public function hasRight($module, ...$keys) { return in_array(end($keys), $this->rights, true); }
+    public array $rights = array(
+        'service:lire',
+        'training:course:read',
+        'training:course:write',
+        'training:course:publish',
+        'training:session:read',
+        'training:enrollment:read',
+        'training:enrollment:write',
+        'societe:contact:lire'
+    );
+    public function hasRight($module, ...$keys) {
+        return in_array($module.':'.implode(':', $keys), $this->rights, true);
+    }
 }
 class TestResult {
     public array $rows;
@@ -66,12 +77,12 @@ rejects(fn() => $access->requireService((object) array('id' => 11, 'entity' => 1
 $user->socid = 9;
 rejects(fn() => $access->requireRight('read'), 'TrainingAccessDenied');
 $user->socid = 0;
-$user->rights = array('read', 'lire');
+$user->rights = array('service:lire', 'training:course:read', 'training:session:read', 'societe:contact:lire');
 $db = new TestDb();
 $catalog = new TrainingCatalogService($db, $access, fn($id) => $product);
 rejects(fn() => $catalog->createDraft(11, $input), 'TrainingAccessDenied');
 check($db->begins === 0 && count($db->sql) === 0, 'denied write does not touch database');
-$user->rights = array('read', 'write', 'publish', 'lire');
+$user->rights = array('service:lire', 'training:course:read', 'training:course:write', 'training:course:publish', 'training:session:read', 'training:enrollment:read', 'training:enrollment:write', 'societe:contact:lire');
 $db->results = array(array((object) array('rowid' => 11)), array(), array((object) array('last_version' => 0)));
 check($catalog->createDraft(11, $input) === 5, 'draft created');
 check($db->commits === 1 && $db->rollbacks === 0, 'draft and audit committed together');
@@ -113,7 +124,7 @@ rejects(fn() => TrainingSlots::normalize(array($slot, $slot), 'Europe/Copenhagen
 rejects(fn() => TrainingSlots::normalize(array($slot), 'Invalid/Zone'), 'TrainingInvalidTimezone');
 rejects(fn() => TrainingSlots::normalize(array(array('start'=>'2026-03-29T02:30:00+01:00','end'=>'2026-03-29T04:30:00+02:00')), 'Europe/Copenhagen'), 'TrainingInvalidSlots');
 check(TrainingSlots::normalize(array(array('start'=>'2026-10-25T02:00:00+02:00','end'=>'2026-10-25T02:30:00+01:00')), 'Europe/Copenhagen')[0]['duration_minutes'] === 90, 'explicit offsets disambiguate autumn clock change');
-$user->rights = array('read','lire');
+$user->rights = array('service:lire', 'training:course:read', 'training:session:read', 'societe:contact:lire');
 $db = new TestDb();
 $contact = (object) array('id'=>21,'entity'=>2,'socid'=>99);
 $db->results = array(array());
