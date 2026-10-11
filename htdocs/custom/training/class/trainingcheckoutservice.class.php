@@ -369,7 +369,7 @@ final class TrainingCheckoutService
         // confirm() per participant is not usable here: it rejects contacts
         // with an active seat hold (TrainingParticipantReserved), which the
         // checkout session itself created.
-        $holdId = (int) $checkout->fk_seat_hold;
+        $holdId = (int) $checkout->seat_hold_id;
         $this->enrollmentService->confirmReservation((int) $checkout->fk_session, $holdId, 'native_checkout_finalize');
         $memberMap = array();
         foreach ($this->enrollmentService->reservationMembers((int) $checkout->fk_session, $holdId) as $member) {
@@ -432,7 +432,7 @@ final class TrainingCheckoutService
         );
         $this->enrollmentService->releaseReservation(
             (int) $checkout->fk_session,
-            (int) $checkout->fk_seat_hold,
+            (int) $checkout->seat_hold_id,
             'native_payment_confirmed'
         );
 
