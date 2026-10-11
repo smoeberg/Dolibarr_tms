@@ -24,6 +24,9 @@ class TestUser {
         'training:session:read',
         'training:enrollment:read',
         'training:enrollment:write',
+        'training:billing:read',
+        'training:billing:write',
+        'training:billing:correct',
         'societe:contact:lire'
     );
     public function hasRight($module, ...$keys) {
@@ -69,6 +72,8 @@ rejects(fn() => TrainingProgram::normalize($input + array('modality' => 'invalid
 rejects(fn() => TrainingProgram::requirePublishable(TrainingProgram::normalize(array('units' => $input['units']))), 'TrainingPublishNeedsGoalsAndAudience');
 $user = new TestUser();
 $access = new TrainingAccess($user, 2, '1,2');
+$access->requireDomain('billing', 'read');
+rejects(fn() => $access->requireDomain('payment', 'read'), 'TrainingAccessDenied');
 $product = (object) array('id' => 11, 'entity' => 1, 'type' => 1, 'ref' => 'EXCEL', 'label' => 'Excel', 'description' => 'Standard description');
 $access->requireService($product);
 check($access->entity() === 2, 'shared standard service does not change module entity');
@@ -82,7 +87,7 @@ $db = new TestDb();
 $catalog = new TrainingCatalogService($db, $access, fn($id) => $product);
 rejects(fn() => $catalog->createDraft(11, $input), 'TrainingAccessDenied');
 check($db->begins === 0 && count($db->sql) === 0, 'denied write does not touch database');
-$user->rights = array('service:lire', 'training:course:read', 'training:course:write', 'training:course:publish', 'training:session:read', 'training:enrollment:read', 'training:enrollment:write', 'societe:contact:lire');
+$user->rights = array('service:lire', 'training:course:read', 'training:course:write', 'training:course:publish', 'training:session:read', 'training:enrollment:read', 'training:enrollment:write', 'training:billing:read', 'training:billing:write', 'training:billing:correct', 'societe:contact:lire');
 $db->results = array(array((object) array('rowid' => 11)), array(), array((object) array('last_version' => 0)));
 check($catalog->createDraft(11, $input) === 5, 'draft created');
 check($db->commits === 1 && $db->rollbacks === 0, 'draft and audit committed together');
