@@ -200,10 +200,22 @@ nativeCheck(
 nativeCheck(abs($observePaid['paid_amount']-125.0)<0.000001 && $observePaid['payment_id']===$finalPaymentId,'Native payment observation records the payment that completed the obligation');
 $invoiceAfterFullPayment=$db->query('SELECT paye FROM '.$db->prefix().'facture WHERE rowid='.$checkoutInvoiceId);
 nativeCheck($invoiceAfterFullPayment && (int) $db->fetch_object($invoiceAfterFullPayment)->paye===1,'Dolibarr marks invoice paid when cumulative native payments cover the obligation');
-$queuedNativeCheckout=$db->query('SELECT rowid, status, fk_invoice FROM '.$db->prefix().'training_native_payment_queue WHERE entity='.(int)$conf->entity.' AND fk_checkout_session='.(int)$nativeCheckoutResult['checkout_session_id']);
+$queuedNativeCheckout=$db->query('SELECT rowid, status, fk_invoice FROM '.$db->prefix().'training_native_payment_queue WHERE entity='.(int)$conf->entity.' AND fk_checkout_session='.(int)$nativeCheckoutResult['checkout_session_id'].' ORDER BY rowid');
 nativeCheck((bool)$queuedNativeCheckout,'Paid native invoice creates a durable checkout-finalization queue item');
-$queuedNativeCheckoutRow=$db->fetch_object($queuedNativeCheckout);
-nativeCheck($queuedNativeCheckoutRow && $queuedNativeCheckoutRow->status==='pending' && (int)$queuedNativeCheckoutRow->fk_invoice===$checkoutInvoiceId,'Payment trigger queues the correlated invoice exactly once for the worker');
+$queueRows=array();
+while ($queueRow=$db->fetch_object($queuedNativeCheckout)) {
+    $queueRows[]=array(
+        'rowid'=>(int)$queueRow->rowid,
+        'status'=>(string)$queueRow->status,
+        'fk_invoice'=>(int)$queueRow->fk_invoice,
+    );
+}
+nativeCheck(
+    count($queueRows)===1
+        && $queueRows[0]['status']==='pending'
+        && $queueRows[0]['fk_invoice']===(int)$checkoutInvoiceId,
+    'Expected exactly one pending queue item for invoice '.(int)$checkoutInvoiceId.'; actual queue rows: '.json_encode($queueRows)
+);
 $observeAgain=$nativeCheckout->observeNativePayment((int) $nativeCheckoutResult['checkout_session_id']);
 nativeCheck($observeAgain['status']==='paiement_present' && $observeAgain['payment_id']===$finalPaymentId && abs($observeAgain['paid_amount']-125.0)<0.000001,'Native paiement_present observation is idempotent');
 $finalized=$nativeCheckout->finalizeNativeCheckout((int) $nativeCheckoutResult['checkout_session_id']);
