@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__.'/trainingstore.class.php';
 require_once __DIR__.'/trainingpriceservice.class.php';
+require_once __DIR__.'/trainingpaymentservice.class.php';
 final class TrainingEnrollmentService
 {
     private TrainingStore $s;
