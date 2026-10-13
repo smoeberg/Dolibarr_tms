@@ -158,7 +158,8 @@ nativeCheck($checkoutInvoiceId>0 && $checkoutInvoiceId!==(int) $nativeInvoice['i
 $observePending=$nativeCheckout->observeNativePayment((int) $nativeCheckoutResult['checkout_session_id']);
 nativeCheck($observePending['status']==='payment_redirected' && $observePending['payment_status']==='pending','Native payment observation remains pending before Paiement exists');
 
-$createNativePayment=function(float $amount) use ($db,$user,$checkoutInvoiceId): int {
+$createNativePayment=function(float $amount, int $targetInvoiceId = 0) use ($db,$user,$checkoutInvoiceId): int {
+    if ($targetInvoiceId < 1) { $targetInvoiceId = $checkoutInvoiceId; }
     $methodRow=$db->query('SELECT id FROM '.$db->prefix().'c_paiement WHERE active=1 ORDER BY id LIMIT 1');
     nativeCheck((bool) $methodRow,'Native payment method exists');
     $method=$db->fetch_object($methodRow);
@@ -168,7 +169,7 @@ $createNativePayment=function(float $amount) use ($db,$user,$checkoutInvoiceId):
     $payment->datepaye=$now;
     $payment->date=$now;
     // amounts is keyed by invoice id; create() inserts paiement_facture rows.
-    $payment->amounts=array($checkoutInvoiceId => $amount);
+    $payment->amounts=array($targetInvoiceId => $amount);
     $payment->paiementid=(int) $method->id;
     $payment->note='A8 native payment CI';
     // Let Dolibarr close an invoice when cumulative payments cover it; this is
@@ -225,6 +226,50 @@ $allocationRow=$db->query('SELECT SUM(amount) AS total FROM '.$db->prefix().'tra
 nativeCheck($allocationRow && abs((float)$db->fetch_object($allocationRow)->total-125.0)<0.000001,'Native checkout allocates only the enrollment obligation from native payment truth');
 $finalizedAgain=$nativeCheckout->finalizeNativeCheckout((int) $nativeCheckoutResult['checkout_session_id']);
 nativeCheck($finalizedAgain['status']==='completed' && count($finalizedAgain['enrollment_ids'])===1,'Native checkout finalization is idempotent');
+
+// A8 regression: full native payment after the SeatHold has been released.
+// Payment truth must not resurrect the hold or silently enroll/allocate the participant.
+$lateContact=new Contact($db); $lateContact->firstname='Late'; $lateContact->lastname='Payment'; $lateContact->statut=1;
+$lateContactId=$lateContact->create($user);
+nativeCheck($lateContactId>0,'Late-payment regression contact creation');
+$lateContact->socid=$companyId; $lateContact->update($lateContactId,$user);
+$lateSession=$scheduling->create($version,'NATIVE-LATE-PAYMENT-CI','Late payment after release',1,'Europe/Copenhagen');
+$scheduling->replaceSlots($lateSession,array(array('start'=>'2026-10-22T09:00:00+02:00','end'=>'2026-10-22T10:00:00+02:00')));
+$scheduling->changeStatus($lateSession,'open');
+$lateReservationKey=str_repeat('a',32);
+$lateHoldId=(int)$enrollments->reserve($lateSession,array($lateContactId),$lateReservationKey,15);
+$lateCheckoutResult=$nativeCheckout->createNativeCheckoutSession(
+    $lateSession,
+    array(array('contact_id'=>$lateContactId,'first_name'=>'Late','last_name'=>'Payment','email'=>'late@example.test','phone'=>'')),
+    $lateReservationKey,
+    $lateHoldId
+);
+nativeCheck($lateCheckoutResult['invoice_id']>0,'Late-payment fixture creates a correlated native invoice');
+$nativeCheckout->prepareNativePaymentRedirect((int)$lateCheckoutResult['checkout_session_id']);
+$enrollments->releaseReservation($lateSession,$lateHoldId,'Released before native payment was observed');
+$lateHoldRow=$db->query('SELECT status FROM '.$db->prefix().'training_seat_hold WHERE rowid='.$lateHoldId.' AND entity='.(int)$conf->entity);
+nativeCheck($lateHoldRow && $db->fetch_object($lateHoldRow)->status==='released','Late-payment fixture SeatHold is terminally released');
+$latePaymentId=$createNativePayment(125.00,(int)$lateCheckoutResult['invoice_id']);
+$lateFinalize=null; $lateFinalizeError='';
+try {
+    $lateFinalize=$nativeCheckout->finalizeNativeCheckout((int)$lateCheckoutResult['checkout_session_id']);
+} catch (Throwable $e) {
+    $lateFinalizeError=$e->getMessage();
+}
+nativeCheck(
+    is_array($lateFinalize) && ($lateFinalize['status']??'')==='reconciliation_required',
+    'Full payment after SeatHold release persists reconciliation_required instead of throwing or auto-finalizing (error='.$lateFinalizeError.')'
+);
+$lateCheckoutRow=$db->query('SELECT status FROM '.$db->prefix().'training_checkout_session WHERE rowid='.(int)$lateCheckoutResult['checkout_session_id'].' AND entity='.(int)$conf->entity);
+nativeCheck($lateCheckoutRow && $db->fetch_object($lateCheckoutRow)->status==='reconciliation_required','Late payment recovery state is durable in checkout row');
+$lateEnrollmentRows=$db->query('SELECT COUNT(*) AS n FROM '.$db->prefix().'training_checkout_participant WHERE entity='.(int)$conf->entity.' AND fk_checkout_session='.(int)$lateCheckoutResult['checkout_session_id'].' AND fk_enrollment IS NOT NULL');
+nativeCheck($lateEnrollmentRows && (int)$db->fetch_object($lateEnrollmentRows)->n===0,'Late payment does not create or link an enrollment');
+$lateAllocationRows=$db->query('SELECT COUNT(*) AS n FROM '.$db->prefix().'training_payment_allocation WHERE entity='.(int)$conf->entity.' AND fk_paiement='.$latePaymentId);
+nativeCheck($lateAllocationRows && (int)$db->fetch_object($lateAllocationRows)->n===0,'Late payment does not allocate native payment');
+$lateHoldRow=$db->query('SELECT status FROM '.$db->prefix().'training_seat_hold WHERE rowid='.$lateHoldId.' AND entity='.(int)$conf->entity);
+nativeCheck($lateHoldRow && $db->fetch_object($lateHoldRow)->status==='released','Late-payment processing never reactivates the released SeatHold');
+$lateFinalizeAgain=$nativeCheckout->finalizeNativeCheckout((int)$lateCheckoutResult['checkout_session_id']);
+nativeCheck(($lateFinalizeAgain['status']??'')==='reconciliation_required','Late-payment reconciliation observation/finalization is idempotent');
 
 $tables=array('training_enrollment_commercial','training_seat_hold','training_seat_member','training_course_profile','training_course_version','training_audit','training_session','training_session_slot','training_learner','training_enrollment','training_attendance','training_billing_line','training_billing_allocation','training_native_payment_queue','training_trainer','training_trainer_assignment');
 $counts=array(); foreach ($tables as $table) { $counts[$table]=nativeCount($table); }
