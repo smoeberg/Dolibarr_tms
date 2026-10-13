@@ -191,6 +191,12 @@ $partialQueue=$db->query('SELECT rowid FROM '.$db->prefix().'training_native_pay
 nativeCheck($partialQueue && !$db->fetch_object($partialQueue),'Partial native payment does not enqueue checkout finalization');
 $invoiceAfterPartial=$db->query('SELECT paye FROM '.$db->prefix().'facture WHERE rowid='.$checkoutInvoiceId);
 nativeCheck($invoiceAfterPartial && (int) $db->fetch_object($invoiceAfterPartial)->paye===0,'Dolibarr keeps invoice unpaid after a partial payment');
+$partialHold=$db->query('SELECT status FROM '.$db->prefix().'training_seat_hold WHERE rowid='.$nativeCheckoutHoldId.' AND entity='.(int)$conf->entity);
+nativeCheck($partialHold && $db->fetch_object($partialHold)->status==='active','Partial payment leaves SeatHold active');
+$partialLinks=$db->query('SELECT COUNT(*) AS n FROM '.$db->prefix().'training_checkout_participant WHERE entity='.(int)$conf->entity.' AND fk_checkout_session='.(int)$nativeCheckoutResult['checkout_session_id'].' AND fk_enrollment IS NOT NULL');
+nativeCheck($partialLinks && (int)$db->fetch_object($partialLinks)->n===0,'Partial payment creates no enrollment');
+$partialAllocations=$db->query('SELECT COUNT(*) AS n FROM '.$db->prefix().'training_payment_allocation WHERE entity='.(int)$conf->entity.' AND fk_paiement='.$partialPaymentId);
+nativeCheck($partialAllocations && (int)$db->fetch_object($partialAllocations)->n===0,'Partial payment creates no payment allocation');
 
 $finalPaymentId=$createNativePayment(25.00);
 $observePaid=$nativeCheckout->observeNativePayment((int) $nativeCheckoutResult['checkout_session_id']);
@@ -259,7 +265,7 @@ $t2PendingRow=$t2Pending ? $db->fetch_object($t2Pending) : null;
 nativeCheck($t2PendingRow && $t2PendingRow->status==='PENDING_ENROLLMENT','T2 rollback preserves a persistent, queryable PENDING_ENROLLMENT');
 $t2Allocations=$db->query('SELECT COUNT(*) AS n FROM '.$db->prefix().'training_payment_allocation WHERE entity='.(int)$conf->entity.' AND fk_paiement='.$finalPaymentId);
 nativeCheck($t2Allocations && (int)$db->fetch_object($t2Allocations)->n===0,'T2 rollback removes payment allocations');
-$t2Snapshots=$db->query('SELECT COUNT(*) AS n FROM '.$db->prefix().'training_payment_snapshot ps JOIN '.$db->prefix().'training_payment_allocation pa ON pa.rowid=ps.fk_allocation AND pa.entity=ps.entity WHERE pa.entity='.(int)$conf->entity.' AND pa.fk_paiement='.$finalPaymentId);
+$t2Snapshots=$db->query('SELECT COUNT(*) AS n FROM '.$db->prefix().'training_payment_snapshot WHERE entity='.(int)$conf->entity.' AND fk_paiement='.$finalPaymentId);
 nativeCheck($t2Snapshots && (int)$db->fetch_object($t2Snapshots)->n===0,'T2 rollback leaves no payment snapshots');
 
 $finalized=$nativeCheckout->finalizeNativeCheckout((int) $nativeCheckoutResult['checkout_session_id']);
