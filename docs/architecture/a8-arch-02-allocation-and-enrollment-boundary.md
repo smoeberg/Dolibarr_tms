@@ -54,7 +54,10 @@ Denne kontrakt er skrevet *efter* PR #26 (late-payment reconciliation) og worker
 Normative konsekvenser:
 
 - Der findes præcis **ét sted**, hvor et hold forbruges: fuld betaling + gyldig reservation, i worker-finaliseringsstien. Delbetaling forbruger aldrig et hold.
-- `PENDING_ENROLLMENT` er en **kortlivet men persistent** mellemtilstand *inden i* den atomiske transaktion: hvis transaktionen ruller tilbage (fx audit-failure), forbliver ingen enrollment i `PENDING_ENROLLMENT` — holdet forbliver CONSUMED og pladsen er brugt; operatøren kan genkøre finaliseringen idempotent (A2.6).
+- **Tosluget model (ratificeret præcisering 13. okt. 2026):** Der er to adskilte atomiske transaktioner.
+  - **T1 — finalisering:** hold → `CONSUMED` og enrollment oprettes i `PENDING_ENROLLMENT` i én atomisk transaktion. Ruller T1 tilbage, ruller *begge* dele tilbage: ingen pending-tilstand findes, holdet forbliver `active`, og finaliseringen kan genkøres idempotent (A2.6).
+  - **T2 — bekræftelse:** `PENDING_ENROLLMENT → CONFIRMED` samt allokering og snapshot i én atomisk transaktion (A2.9). Ruller T2 tilbage (fx audit-failure), forbliver enrollmenten **persistert og forespørgbar i `PENDING_ENROLLMENT`** — mellemtilstanden er observerbar af UI og operatør, og en ny bekræftelses-transaktion kan fuldføre den.
+  - Mellem T1 og T2 er `PENDING_ENROLLMENT` dermed en reel, vedvarende tilstand på enrollment-aggregatet — ikke blot en intern fase i én transaktion.
 - Enrollment oprettes **kun** via konvertering af et hold i worker-finaliseringsstien — aldrig direkte fra browser-retur, aldrig fra trigger-handleren, aldrig ved siden af et aktivt hold (ARCH-01's regel om `confirmReservation` er uændret).
 
 ## 3. Worker og recovery-kontrakt
@@ -79,8 +82,8 @@ BILL_PAYED-triggeren validerer kun (per `native-payment-worker.md`): `paye = 1`,
 
 ### 3.2 Allokeringsøjeblikket
 
-**Regel A2.9 — Allokering sker i samme transaktion som enrollment-bekræftelsen.**
-Når workeren konverterer `PENDING_ENROLLMENT → CONFIRMED`, skrives payment_allocation + payment_snapshot i samme `TrainingStore::transaction()` som statusændringen. Audit-failure ruller allokeringen tilbage (mønster fra PR #26's atomiske reconciliation-audit). Delallokering: hvis paiemente dækker flere enrollments, fordeles beløbet i de allokerede dele; hver del er en selvstændig allokering, hver med sit snapshot.
+**Regel A2.9 — Allokering sker i samme transaktion (T2) som enrollment-bekræftelsen.**
+Når workeren konverterer `PENDING_ENROLLMENT → CONFIRMED`, skrives payment_allocation + payment_snapshot i samme `TrainingStore::transaction()` som statusændringen (T2). Audit-failure ruller **hele T2** tilbage — status, allokering og snapshot — og efterlader enrollmenten persistert i `PENDING_ENROLLMENT` (tosluget model, A2.5). Delallokering: hvis paiemente dækker flere enrollments, fordeles beløbet i de allokerede dele; hver del er en selvstændig allokering, hver med sit snapshot.
 
 **Regel A2.10 — Delbetaling forbruger hverken plads eller enrollment.**
 En faktura, der kun er delvist betalt, udløser ikke triggeren og fører ikke til holdkonvertering, enrollment-oprettelse eller allokering. Holdet forbliver `active` og kan udløbe naturligt (ARCH-01). Beløbet forbliver i Dolibarrs faktura og håndteres udelukkende gennem reconciliation-stien (PR #26), som forbliver fail-closed: ingen genaktivering af frigivne holds, og gentagne forsøg må ikke oprette enrollment eller allokering ved siden af.
@@ -126,7 +129,7 @@ Implementeringen låses først, når disse regressionstests findes og fejler på
 5. **Fejltilstande:** hver af de fem fejltilstande fra A2.7 kan sættes og aflæses; ingen af dem retrier automatisk.
 6. **Atomisk allokering:** audit-failure under `confirmPending` ruller både status og allokering tilbage (udvider PR #26's audit-atomicity-test).
 7. **Delbetaling:** faktura betalt 50/100 → **ingen** holdkonvertering, **ingen** enrollment, **ingen** allokering; hold forbliver `active`. Fuld betaling → atomisk kæde: CONSUMED + `PENDING_ENROLLMENT` + allokering i én transaktion.
-8. **PENDING_ENROLLMENT-persistens:** tilstanden kan læses fra vedvarende lagring (ikke blot findes som enum eller i hukommelsen); audit-fejl giver den præcist definerede, atomiske rollback-adfærd, hvorefter en idempotent genkørsel fuldfører kæden.
+8. **PENDING_ENROLLMENT-persistens (tosluget):** T1 ruller tilbage → hverken CONSUMED-hold eller pending-tilstand findes; T1 lykkes → pending-tilstanden kan læses fra vedvarende lagring mellem T1 og T2. T2-audit-fejl ruller kun T2 tilbage: enrollmenten forbliver forespørgbar i `PENDING_ENROLLMENT`, og en ny bekræftelses-transaktion fuldfører kæden idempotent.
 
 ## 7. Explicit out of scope
 
@@ -137,6 +140,7 @@ Implementeringen låses først, når disse regressionstests findes og fejler på
 
 ## 8. Ratificeringslog
 
+- **13. okt. 2026 (2. præcisering)** — Ejer ratificerede den toslungede model som svar på implementeringsheldens kontraktmodstrid: T1 (hold→CONSUMED + PENDING_ENROLLMENT) og T2 (PENDING_ENROLLMENT→CONFIRMED + allokering + snapshot) er to adskilte atomiske transaktioner. T2-rollback efterlader pending persistert; T1-rollback efterlader holdet active. A2.5, A2.9 og §6.8 er opdateret derefter.
 - **13. okt. 2026** — Ejer godkendte implementeringskontrakten: (1) delbetaling forbruger ikke SeatHold og opretter hverken enrollment eller allokering; (2) fuld betaling + gyldig reservation → holdkonvertering, persistent `PENDING_ENROLLMENT` og allokering i én atomisk transaktion; (3) `PENDING_ENROLLMENT` er en selvstændig, persistent, forespørgsbar status; (4) ugyldig/udløbet reservation håndteres kun via fail-closed reconciliation; (5) idempotens på tværs af worker-kørsler og observationer. A2.5, A2.10 og §6 er opdateret derefter af ejerens side (dokumentet ejes af TMS-ejeren, ikke af implementatoren). Implementationatoren har ret til at gennemgå kontrakten mod eksisterende kode, men ikke til at ændre den.
 
 *Ratificeringsnote: Reglerne A2.1, A2.4, A2.6 og A2.9 er de bærende; hvis nogen af dem ændres under review, skal §6's testkontrakt justeres i samme commit. Implementationsskøn (kolonnenavne, metodesignaturer) er sekundært og må justeres i implementation-PR'en, så længe reglerne holder.*
