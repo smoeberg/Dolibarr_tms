@@ -171,7 +171,9 @@ $createNativePayment=function(float $amount) use ($db,$user,$checkoutInvoiceId):
     $payment->amounts=array($checkoutInvoiceId => $amount);
     $payment->paiementid=(int) $method->id;
     $payment->note='A8 native payment CI';
-    $paymentId=$payment->create($user, 0, null);
+    // Let Dolibarr close an invoice when cumulative payments cover it; this is
+    // the native path that sets facture.paye and dispatches BILL_PAYED.
+    $paymentId=$payment->create($user, 1, null);
     nativeCheck($paymentId>0,'Native Paiement created: '.$payment->error);
     return (int) $paymentId;
 };
@@ -184,18 +186,47 @@ nativeCheck(
     'Partial native Paiement does not advance checkout state (got status='.$observePartial['status'].' payment_status='.$observePartial['payment_status'].' paid='.$observePartial['paid_amount'].' required='.$observePartial['required_amount'].')'
 );
 nativeCheck(abs($observePartial['paid_amount']-100.0)<0.000001 && $observePartial['payment_id']===$partialPaymentId,'Partial native payment amount and identity are observed');
+$partialQueue=$db->query('SELECT rowid FROM '.$db->prefix().'training_native_payment_queue WHERE entity='.(int)$conf->entity.' AND fk_checkout_session='.(int)$nativeCheckoutResult['checkout_session_id']);
+nativeCheck($partialQueue && !$db->fetch_object($partialQueue),'Partial native payment does not enqueue checkout finalization');
+$invoiceAfterPartial=$db->query('SELECT paye FROM '.$db->prefix().'facture WHERE rowid='.$checkoutInvoiceId);
+nativeCheck($invoiceAfterPartial && (int) $db->fetch_object($invoiceAfterPartial)->paye===0,'Dolibarr keeps invoice unpaid after a partial payment');
 
-$overPaymentId=$createNativePayment(50.00);
+$finalPaymentId=$createNativePayment(25.00);
 $observePaid=$nativeCheckout->observeNativePayment((int) $nativeCheckoutResult['checkout_session_id']);
 nativeCheck(
-    $observePaid['status']==='paiement_present' && $observePaid['payment_status']==='overpaid',
-    'Cumulative native Paiement advances to paiement_present and records overpayment (got status='.$observePaid['status'].' payment_status='.$observePaid['payment_status'].' paid='.$observePaid['paid_amount'].' required='.$observePaid['required_amount'].')'
+    $observePaid['status']==='paiement_present' && $observePaid['payment_status']==='paid',
+    'Cumulative native Paiement advances to paiement_present and records full payment (got status='.$observePaid['status'].' payment_status='.$observePaid['payment_status'].' paid='.$observePaid['paid_amount'].' required='.$observePaid['required_amount'].')'
 );
-nativeCheck(abs($observePaid['paid_amount']-150.0)<0.000001 && $observePaid['payment_id']===$overPaymentId,'Native payment observation records the payment that completed the obligation');
+nativeCheck(abs($observePaid['paid_amount']-125.0)<0.000001 && $observePaid['payment_id']===$finalPaymentId,'Native payment observation records the payment that completed the obligation');
+$invoiceAfterFullPayment=$db->query('SELECT paye FROM '.$db->prefix().'facture WHERE rowid='.$checkoutInvoiceId);
+nativeCheck($invoiceAfterFullPayment && (int) $db->fetch_object($invoiceAfterFullPayment)->paye===1,'Dolibarr marks invoice paid when cumulative native payments cover the obligation');
+$queuedNativeCheckout=$db->query('SELECT rowid, status, fk_invoice FROM '.$db->prefix().'training_native_payment_queue WHERE entity='.(int)$conf->entity.' AND fk_checkout_session='.(int)$nativeCheckoutResult['checkout_session_id'].' ORDER BY rowid');
+nativeCheck((bool)$queuedNativeCheckout,'Paid native invoice creates a durable checkout-finalization queue item');
+$queueRows=array();
+while ($queueRow=$db->fetch_object($queuedNativeCheckout)) {
+    $queueRows[]=array(
+        'rowid'=>(int)$queueRow->rowid,
+        'status'=>(string)$queueRow->status,
+        'fk_invoice'=>(int)$queueRow->fk_invoice,
+    );
+}
+nativeCheck(
+    count($queueRows)===1
+        && $queueRows[0]['status']==='pending'
+        && $queueRows[0]['fk_invoice']===(int)$checkoutInvoiceId,
+    'Expected exactly one pending queue item for invoice '.(int)$checkoutInvoiceId.'; actual queue rows: '.json_encode($queueRows)
+);
 $observeAgain=$nativeCheckout->observeNativePayment((int) $nativeCheckoutResult['checkout_session_id']);
-nativeCheck($observeAgain['status']==='paiement_present' && $observeAgain['payment_id']===$overPaymentId && abs($observeAgain['paid_amount']-150.0)<0.000001,'Native paiement_present observation is idempotent');
+nativeCheck($observeAgain['status']==='paiement_present' && $observeAgain['payment_id']===$finalPaymentId && abs($observeAgain['paid_amount']-125.0)<0.000001,'Native paiement_present observation is idempotent');
+$finalized=$nativeCheckout->finalizeNativeCheckout((int) $nativeCheckoutResult['checkout_session_id']);
+nativeCheck($finalized['success']===true && $finalized['status']==='completed','Native checkout finalizes only from persisted Dolibarr Paiement');
+nativeCheck(count($finalized['enrollment_ids'])===1,'Native checkout finalizes the participant enrollment');
+$allocationRow=$db->query('SELECT SUM(amount) AS total FROM '.$db->prefix().'training_payment_allocation WHERE entity='.(int)$conf->entity.' AND fk_enrollment='.(int)$finalized['enrollment_ids'][0]);
+nativeCheck($allocationRow && abs((float)$db->fetch_object($allocationRow)->total-125.0)<0.000001,'Native checkout allocates only the enrollment obligation from native payment truth');
+$finalizedAgain=$nativeCheckout->finalizeNativeCheckout((int) $nativeCheckoutResult['checkout_session_id']);
+nativeCheck($finalizedAgain['status']==='completed' && count($finalizedAgain['enrollment_ids'])===1,'Native checkout finalization is idempotent');
 
-$tables=array('training_enrollment_commercial','training_seat_hold','training_seat_member','training_course_profile','training_course_version','training_audit','training_session','training_session_slot','training_learner','training_enrollment','training_attendance','training_billing_line','training_billing_allocation','training_trainer','training_trainer_assignment');
+$tables=array('training_enrollment_commercial','training_seat_hold','training_seat_member','training_course_profile','training_course_version','training_audit','training_session','training_session_slot','training_learner','training_enrollment','training_attendance','training_billing_line','training_billing_allocation','training_native_payment_queue','training_trainer','training_trainer_assignment');
 $counts=array(); foreach ($tables as $table) { $counts[$table]=nativeCount($table); }
 nativeCheck(unActivateModule('modTraining',0) === '', 'Native deactivation');
 $conf->setValues($db);

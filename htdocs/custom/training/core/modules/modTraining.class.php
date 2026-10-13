@@ -19,7 +19,7 @@ class modTraining extends DolibarrModules
         $this->picto = 'service';
         $this->editor_name = 'Dolibarr TMS';
         $this->editor_url = 'https://github.com/smoeberg/Dolibarr_tms';
-        $this->module_parts = array('moduleforexternal' => 0);
+        $this->module_parts = array('moduleforexternal' => 0, 'triggers' => 1);
         $this->dirs = array();
         $this->config_page_url = array();
         $this->depends = array('modService', 'modSociete', 'modFacture');
@@ -68,7 +68,39 @@ class modTraining extends DolibarrModules
         if ($this->applyCheckoutCorrelationMigration() < 0) {
             return -1;
         }
+        if ($this->applyNativePaymentQueueMigration() < 0) {
+            return -1;
+        }
         return $this->_init(array(), $options);
+    }
+
+
+    /**
+     * Durable handoff from Dolibarr's invoice-paid trigger to the native
+     * payment workflow worker. The unique key makes trigger retries idempotent.
+     */
+    private function applyNativePaymentQueueMigration(): int
+    {
+        $table = $this->db->prefix().'training_native_payment_queue';
+        $sql = 'CREATE TABLE IF NOT EXISTS '.$table.' (
+            rowid integer AUTO_INCREMENT PRIMARY KEY,
+            entity integer NOT NULL,
+            fk_checkout_session integer NOT NULL,
+            fk_invoice integer NOT NULL,
+            status varchar(16) NOT NULL DEFAULT \'pending\',
+            attempts integer NOT NULL DEFAULT 0,
+            last_error varchar(255) DEFAULT NULL,
+            datec datetime NOT NULL,
+            changed_at datetime NOT NULL,
+            UNIQUE KEY uk_training_native_payment_queue_checkout (entity, fk_checkout_session),
+            KEY idx_training_native_payment_queue_work (entity, status, rowid),
+            KEY idx_training_native_payment_queue_recovery (entity, status, changed_at)
+        ) ENGINE=InnoDB';
+        if (!$this->db->query($sql)) {
+            $this->error = 'Training native payment queue schema installation failed.';
+            return -1;
+        }
+        return 1;
     }
 
     public function remove($options = '')

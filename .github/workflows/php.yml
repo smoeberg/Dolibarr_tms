@@ -27,7 +27,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends python3 git libzip-dev libicu-dev libonig-dev
-          docker-php-ext-install mysqli zip mbstring intl
+          docker-php-ext-install mysqli zip mbstring intl bcmath
       - uses: actions/checkout@v4
         with:
           repository: Dolibarr/dolibarr

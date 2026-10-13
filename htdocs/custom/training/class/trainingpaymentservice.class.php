@@ -23,8 +23,7 @@ final class TrainingPaymentService
 
     private function allow(string $right): void {
         $this->s->access->requireDomain('session', 'read');
-        $this->s->access->requireDomain('payment', $right);
-        $this->s->access->requirePaymentRead();
+        $this->s->access->requireDomain('billing', $right);
         $this->s->access->requireContactRead();
     }
 
@@ -357,7 +356,7 @@ final class TrainingPaymentService
      */
     public function adjustAllocation(int $sessionId, int $paymentId, int $allocationId, string $newAmount, string $reason): array {
         $this->allow('write');
-        $this->s->access->requireDomain('payment', 'correct');
+        $this->s->access->requireDomain('billing', 'correct');
         
         if (trim($reason) === '' || strlen($reason) > 2000) {
             throw new InvalidArgumentException('TrainingPaymentReasonRequired');
@@ -442,7 +441,7 @@ final class TrainingPaymentService
      */
     public function removeAllocation(int $sessionId, int $paymentId, int $allocationId, string $reason): void {
         $this->allow('write');
-        $this->s->access->requireDomain('payment', 'correct');
+        $this->s->access->requireDomain('billing', 'correct');
         
         if (trim($reason) === '' || strlen($reason) > 2000) {
             throw new InvalidArgumentException('TrainingPaymentReasonRequired');
