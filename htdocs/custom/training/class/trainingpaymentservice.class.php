@@ -235,14 +235,14 @@ final class TrainingPaymentService
      * Allocate a payment to enrollments.
      * Distributes payment amount across enrollments based on their remaining balance.
      */
-    public function allocatePayment(int $sessionId, int $paymentId, array $allocationMap, string $reason = ''): array {
+    public function allocatePayment(int $sessionId, int $paymentId, array $allocationMap, string $reason = '', bool $transactionAlreadyOpen = false): array {
         $this->allow('write');
         
         if (trim($reason) === '' || strlen($reason) > 2000) {
             throw new InvalidArgumentException('TrainingPaymentReasonRequired');
         }
         
-        return $this->s->transaction(function () use ($sessionId, $paymentId, $allocationMap, $reason) {
+        $work = function () use ($sessionId, $paymentId, $allocationMap, $reason) {
             $paymentData = $this->payments->payment($paymentId, true);
             $this->s->session($sessionId, true);
             
@@ -347,7 +347,8 @@ final class TrainingPaymentService
                 'total_allocated' => $totalAllocated,
                 'payment_id' => $paymentId
             );
-        });
+        };
+        return $transactionAlreadyOpen ? $work() : $this->s->transaction($work);
     }
 
     /**
