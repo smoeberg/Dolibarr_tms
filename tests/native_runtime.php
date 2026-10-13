@@ -260,9 +260,26 @@ nativeCheck((bool)$db->query('DROP TRIGGER '.$t2Trigger),'Remove T2 audit-failur
 nativeCheck($t2Error!=='','Injected T2 audit failure aborts confirmation');
 $t2Hold=$db->query('SELECT status FROM '.$db->prefix().'training_seat_hold WHERE rowid='.$nativeCheckoutHoldId.' AND entity='.(int)$conf->entity);
 nativeCheck($t2Hold && $db->fetch_object($t2Hold)->status==='converted','T1 remains committed after T2 rollback');
-$t2Pending=$db->query('SELECT e.status FROM '.$db->prefix().'training_checkout_participant cp JOIN '.$db->prefix().'training_enrollment e ON e.rowid=cp.fk_enrollment AND e.entity=cp.entity WHERE cp.entity='.(int)$conf->entity.' AND cp.fk_checkout_session='.(int)$nativeCheckoutResult['checkout_session_id']);
-$t2PendingRow=$t2Pending ? $db->fetch_object($t2Pending) : null;
-nativeCheck($t2PendingRow && $t2PendingRow->status==='PENDING_ENROLLMENT','T2 rollback preserves a persistent, queryable PENDING_ENROLLMENT');
+$t2Pending=$db->query('SELECT e.rowid, e.status FROM '.$db->prefix().'training_checkout_participant cp JOIN '.$db->prefix().'training_enrollment e ON e.rowid=cp.fk_enrollment AND e.entity=cp.entity WHERE cp.entity='.(int)$conf->entity.' AND cp.fk_checkout_session='.(int)$nativeCheckoutResult['checkout_session_id'].' ORDER BY e.rowid');
+$t2PendingRows=array();
+if ($t2Pending) {
+    while ($row=$db->fetch_object($t2Pending)) { $t2PendingRows[]=$row; }
+}
+$t2ObservedStatuses=array_map(function ($row) { return (int)$row->rowid.':'.(string)$row->status; }, $t2PendingRows);
+$t2Observed='linked_enrollments='.count($t2PendingRows).'; statuses=['.implode(', ', $t2ObservedStatuses).']; checkout_session_id='.(int)$nativeCheckoutResult['checkout_session_id'];
+// Fail as an assertion, not an uncaught PHP Error, while the required T2 seam is absent.
+if (!method_exists($enrollments, 'confirmPending')) {
+    nativeCheck(false, 'Missing T2 seam TrainingEnrollmentService::confirmPending(int $enrollmentId, int $paymentId, string $reason): void; '.$t2Observed);
+}
+$t2PendingRow=$t2PendingRows[0] ?? null;
+nativeCheck(count($t2PendingRows)===1 && $t2PendingRow->status==='PENDING_ENROLLMENT','T2 rollback preserves a persistent, queryable PENDING_ENROLLMENT; '.$t2Observed);
+$t2RetryError='';
+try {
+    $enrollments->confirmPending((int)$t2PendingRow->rowid, $finalPaymentId, 'native_checkout_finalize_retry');
+} catch (Throwable $e) {
+    $t2RetryError=$e->getMessage();
+}
+nativeCheck($t2RetryError==='', 'Explicit confirmPending retry succeeds after T2 rollback'.($t2RetryError!=='' ? ': '.$t2RetryError : ''));
 $t2Allocations=$db->query('SELECT COUNT(*) AS n FROM '.$db->prefix().'training_payment_allocation WHERE entity='.(int)$conf->entity.' AND fk_paiement='.$finalPaymentId);
 nativeCheck($t2Allocations && (int)$db->fetch_object($t2Allocations)->n===0,'T2 rollback removes payment allocations');
 $t2Snapshots=$db->query('SELECT COUNT(*) AS n FROM '.$db->prefix().'training_payment_snapshot WHERE entity='.(int)$conf->entity.' AND fk_paiement='.$finalPaymentId);
