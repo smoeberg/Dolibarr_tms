@@ -68,6 +68,9 @@ class modTraining extends DolibarrModules
         if ($this->applyCheckoutCorrelationMigration() < 0) {
             return -1;
         }
+        if ($this->applyCheckoutStatusMigration() < 0) {
+            return -1;
+        }
         if ($this->applyNativePaymentQueueMigration() < 0) {
             return -1;
         }
@@ -107,6 +110,38 @@ class modTraining extends DolibarrModules
     {
         // Deactivation must retain profiles, versions and audit history.
         return $this->_remove(array(), $options);
+    }
+
+    /**
+     * Allow the durable late-payment recovery state in checkout_session.status.
+     * Existing installations may have a column sized only for the pre-A8 statuses.
+     */
+    private function applyCheckoutStatusMigration(): int
+    {
+        $table = $this->db->prefix().'training_checkout_session';
+        $res = $this->db->query(
+            "SELECT column_type FROM information_schema.columns WHERE table_schema = DATABASE()".
+            " AND table_name = '".$this->db->escape($table)."' AND column_name = 'status'"
+        );
+        if (!$res) {
+            $this->error = 'Training checkout status migration could not inspect the current schema.';
+            return -1;
+        }
+        $row = $this->db->fetch_object($res);
+        if (!$row) {
+            $this->error = 'Training checkout status migration could not find checkout_session.status.';
+            return -1;
+        }
+        if (preg_match('/^varchar\\((\\d+)\\)$/i', (string) $row->column_type, $matches) && (int) $matches[1] >= 32) {
+            return 1;
+        }
+        if (!$this->db->query('ALTER TABLE '.$table.' MODIFY status varchar(32) NOT NULL')) {
+            $dbError = method_exists($this->db, 'lasterror') ? $this->db->lasterror() : '';
+            $dbCode = method_exists($this->db, 'errno') ? $this->db->errno() : '';
+            $this->error = 'Training checkout status migration failed.'.($dbCode !== '' || $dbError !== '' ? ' DB['.$dbCode.']: '.$dbError : '');
+            return -1;
+        }
+        return 1;
     }
 
     /**
