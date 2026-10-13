@@ -425,7 +425,7 @@ final class TrainingCheckoutService
         // checkout session itself created.
         $holdId = (int) $checkout->seat_hold_id;
         try {
-            $this->enrollmentService->confirmReservation((int) $checkout->fk_session, $holdId, 'native_checkout_finalize');
+            $this->enrollmentService->confirmReservation((int) $checkout->fk_session, $holdId, 'native_checkout_finalize', true);
         } catch (RuntimeException $e) {
             // The hold may have been released/expired after the preflight check.
             // Only translate the specific transition failure when a fresh,
@@ -464,34 +464,15 @@ final class TrainingCheckoutService
             $enrollmentIds[] = $enrollmentId;
         }
 
-        $payments = $this->store->rows(
-            'SELECT DISTINCT p.rowid AS payment_id FROM '.$this->store->db->prefix().'paiement p '.
-            'INNER JOIN '.$this->store->db->prefix().'paiement_facture pf ON pf.fk_paiement=p.rowid '.
-            'WHERE p.entity='.$this->store->access->entity().
-            ' AND pf.fk_facture='.(int) $checkout->native_commercial_object_id.
-            ' ORDER BY p.rowid'
-        );
-        foreach ($payments as $payment) {
-            $remaining = $this->nativePaymentUnallocatedAmount((int) $payment->payment_id);
-            if ($remaining <= 0.0000001) continue;
-            $map = array();
-            foreach ($enrollmentIds as $enrollmentId) {
-                $balance = $this->paymentBalanceForEnrollment((int) $checkout->fk_session, $enrollmentId);
-                if ($balance > 0.0000001) {
-                    $amount = min($remaining, $balance);
-                    $map[$enrollmentId] = number_format($amount, 8, '.', '');
-                    $remaining -= $amount;
-                }
-                if ($remaining <= 0.0000001) break;
-            }
-            if ($map) {
-                $this->paymentService()->allocatePayment(
-                    (int) $checkout->fk_session,
-                    (int) $payment->payment_id,
-                    $map,
-                    'Native Dolibarr checkout payment'
-                );
-            }
+        // T2 is atomic per pending enrollment: confirmation, allocation,
+        // payment snapshots and their audit events either all commit or all roll back.
+        // T1 remains committed, so a failed T2 leaves a queryable pending enrollment.
+        foreach ($enrollmentIds as $enrollmentId) {
+            $this->enrollmentService->confirmPending(
+                (int) $enrollmentId,
+                (int) $observed['payment_id'],
+                'Native Dolibarr checkout payment'
+            );
         }
 
         $this->store->query(
