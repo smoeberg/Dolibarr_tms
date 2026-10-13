@@ -103,3 +103,20 @@ Run target-environment installation/upgrade checks separately from CI. Keep atte
 ## Execution discipline
 
 Use a separate branch/PR per coherent change. Do not merge without explicit instruction. No broad refactor. Do not call a phase complete from code presence alone: attach test names/results, exact commit SHA, and target-environment evidence where applicable.
+
+
+## Baseline findings verified against `main` (2026-10-13)
+
+This is a narrow source/test inspection, not a claim that the whole repository or target deployment has been audited.
+
+1. **Late-payment reconciliation is not implemented in the checkout service shown on `main`.** `TrainingCheckoutService::observeNativePayment()` accepts only `payment_redirected` and `paiement_present`; it has no `RECONCILIATION_REQUIRED` transition or persisted recovery marker. It also returns early for a partial payment without persisting an explicit partial-payment observation. The established A8 late-payment rule therefore remains a release gap until schema, service, worker/recovery policy, and tests cover it.
+2. **The finalizer does not persist a Pending Enrollment step in the inspected flow.** `finalizeNativeCheckout()` calls `confirmReservation()`, maps reservation members to enrollment IDs, allocates native payment, and marks checkout `completed`. The inspected checkout session/participant path does not show a durable Pending Enrollment state or its recovery transitions. Verify schema and ARCH-00–ARCH-03 before implementation, but do not count the conceptual step as implemented.
+3. **The native runtime test proves direct finalization, not the full worker contract.** `tests/native_runtime.php` creates partial/full native payments and invokes `finalizeNativeCheckout()` directly. The shown scenario does not run `process_native_payments.php` against the queued row, run concurrent worker processes, kill a worker mid-claim, or verify lease/retry recovery.
+4. **The deactivation retention assertion is incomplete for checkout data.** Its explicit retained-table list includes `training_native_payment_queue` but omits `training_checkout_session`, `training_checkout_participant`, and `training_payment_allocation`. Add explicit before/after row-count and recoverability assertions for checkout, participants, queue, allocation, SeatHold/member, and enrollment records.
+5. **Worker-user validation currently proves active/internal identity in the script, not least privilege by itself.** The worker loads the configured user and rights; the actual service calls enforce domain rights. Tests must demonstrate both that the dedicated role succeeds and that an active internal user with excess rights is not required (and a user missing required rights fails closed). Do not infer least privilege from the configuration variable or comments alone.
+
+### Immediate implementation order after this baseline
+
+- First locate and read the actual current ARCH-00–ARCH-03 files and reconcile their names/locations against this checklist. If they cannot be found on `main`, record that as a repository documentation gap rather than guessing paths.
+- Ratify the already-established payment/hold rules plus the still-open late-payment recovery outcome and Stripe ownership/return-flow policy in the actual architecture documents.
+- Then add failing tests for the specific gaps above before changing production code. Keep the worker process/cron proof as a separate target-environment gate; do not claim that direct native-runtime service tests prove it.
