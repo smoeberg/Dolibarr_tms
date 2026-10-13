@@ -235,6 +235,19 @@ final class TrainingCheckoutService
 
         $checkout = $rows[0];
         $status = (string) $checkout->status;
+        if ($status === 'reconciliation_required') {
+            $storedPaidAmount = (float) $checkout->native_payment_amount;
+            $storedRequiredAmount = (float) $checkout->total_amount_ttc;
+            return array(
+                'checkout_session_id' => $checkoutSessionId,
+                'status' => 'reconciliation_required',
+                'payment_status' => $storedPaidAmount > $storedRequiredAmount + 0.0000001 ? 'overpaid' : 'paid',
+                'paid_amount' => $storedPaidAmount,
+                'required_amount' => $storedRequiredAmount,
+                'payment_id' => (int) $checkout->native_payment_id,
+                'payment_ref' => (string) $checkout->native_payment_ref,
+            );
+        }
         if ($status === 'paiement_present') {
             $storedPaidAmount = (float) $checkout->native_payment_amount;
             $storedRequiredAmount = (float) $checkout->total_amount_ttc;
@@ -352,6 +365,14 @@ final class TrainingCheckoutService
         );
         if (!$preRows) throw new RuntimeException('TrainingCheckoutSessionNotFound');
         $checkout = $preRows[0];
+        if ((string) $preRows[0]->status === 'reconciliation_required') {
+            return array(
+                'success'=>false,
+                'checkout_session_id'=>$checkoutSessionId,
+                'status'=>'reconciliation_required',
+                'enrollment_ids'=>array(),
+            );
+        }
         if ((string) $preRows[0]->status === 'completed') {
             $preParticipants = $this->store->rows(
                 'SELECT fk_enrollment FROM '.$this->store->table('checkout_participant').
@@ -385,6 +406,44 @@ final class TrainingCheckoutService
             ' AND fk_checkout_session='.$checkoutSessionId.' ORDER BY rowid'
         );
         if (!$participants) throw new RuntimeException('TrainingCheckoutNoParticipants');
+
+        // A paid invoice is not authority to reclaim a released or expired
+        // SeatHold. Persist reconciliation-required before touching enrollment
+        // or allocation, so retries converge on a durable operator-visible state.
+        $holdRows = $this->store->rows(
+            'SELECT status, expires_utc FROM '.$this->store->table('seat_hold').
+            ' WHERE rowid='.(int) $checkout->seat_hold_id.
+            ' AND entity='.$this->store->access->entity().
+            ' AND fk_session='.(int) $checkout->fk_session
+        );
+        $holdIsUsable = $holdRows
+            && (string) $holdRows[0]->status === 'active'
+            && strtotime((string) $holdRows[0]->expires_utc.' UTC') > strtotime($this->store->decisionTime().' UTC');
+        if (!$holdIsUsable) {
+            $this->store->query(
+                'UPDATE '.$this->store->table('checkout_session').
+                ' SET status='.$this->store->text('reconciliation_required').
+                ', changed_at='.$this->store->now().
+                ', fk_user_modifier='.$this->store->access->actor().
+                ' WHERE rowid='.$checkoutSessionId.
+                ' AND entity='.$this->store->access->entity().
+                ' AND status='.$this->store->text('paiement_present')
+            );
+            $this->store->audit('checkout_session', $checkoutSessionId, 'reconciliation_required', array(
+                'reason' => 'native_payment_after_seat_hold_release_or_expiry',
+                'seat_hold_id' => (int) $checkout->seat_hold_id,
+                'invoice_id' => (int) $checkout->native_commercial_object_id,
+                'payment_id' => (int) $checkout->native_payment_id,
+                'paid_amount' => (float) $checkout->native_payment_amount,
+                'required_amount' => (float) $checkout->total_amount_ttc,
+            ));
+            return array(
+                'success'=>false,
+                'checkout_session_id'=>$checkoutSessionId,
+                'status'=>'reconciliation_required',
+                'enrollment_ids'=>array(),
+            );
+        }
 
         // Convert the checkout's seat hold into enrollments (idempotent: a
         // converted hold returns the member -> enrollment mapping unchanged).
