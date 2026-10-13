@@ -19,7 +19,7 @@ class InterfaceTrainingTriggers
         $this->db = $db;
     }
 
-    public function run_trigger($action, $object, $user, $langs, $conf)
+    public function runTrigger($action, $object, $user, $langs, $conf)
     {
         if ($action !== 'BILL_PAYED') {
             return 0;
