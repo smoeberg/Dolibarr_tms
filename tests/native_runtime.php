@@ -272,7 +272,7 @@ if (!method_exists($enrollments, 'confirmPending')) {
     nativeCheck(false, 'Missing T2 seam TrainingEnrollmentService::confirmPending(int $enrollmentId, int $paymentId, string $reason): void; '.$t2Observed);
 }
 $t2PendingRow=$t2PendingRows[0] ?? null;
-nativeCheck(count($t2PendingRows)===1 && $t2PendingRow->status==='PENDING_ENROLLMENT','T2 rollback preserves a persistent, queryable PENDING_ENROLLMENT; '.$t2Observed);
+nativeCheck(count($t2PendingRows)===1 && $t2PendingRow !== null && $t2PendingRow->status==='PENDING_ENROLLMENT','T2 rollback preserves a persistent, queryable PENDING_ENROLLMENT; '.$t2Observed);
 $t2RetryError='';
 try {
     $enrollments->confirmPending((int)$t2PendingRow->rowid, $finalPaymentId, 'native_checkout_finalize_retry');
