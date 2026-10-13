@@ -273,6 +273,10 @@ if (!method_exists($enrollments, 'confirmPending')) {
 }
 $t2PendingRow=$t2PendingRows[0] ?? null;
 nativeCheck(count($t2PendingRows)===1 && $t2PendingRow !== null && $t2PendingRow->status==='PENDING_ENROLLMENT','T2 rollback preserves a persistent, queryable PENDING_ENROLLMENT; '.$t2Observed);
+$t2Allocations=$db->query('SELECT COUNT(*) AS n FROM '.$db->prefix().'training_payment_allocation WHERE entity='.(int)$conf->entity.' AND fk_paiement='.$finalPaymentId);
+nativeCheck($t2Allocations && (int)$db->fetch_object($t2Allocations)->n===0,'T2 rollback removes payment allocations');
+$t2Snapshots=$db->query('SELECT COUNT(*) AS n FROM '.$db->prefix().'training_payment_snapshot WHERE entity='.(int)$conf->entity.' AND fk_paiement='.$finalPaymentId);
+nativeCheck($t2Snapshots && (int)$db->fetch_object($t2Snapshots)->n===0,'T2 rollback leaves no payment snapshots');
 $t2RetryError='';
 try {
     $enrollments->confirmPending((int)$t2PendingRow->rowid, $finalPaymentId, 'native_checkout_finalize_retry');
@@ -280,10 +284,6 @@ try {
     $t2RetryError=$e->getMessage();
 }
 nativeCheck($t2RetryError==='', 'Explicit confirmPending retry succeeds after T2 rollback'.($t2RetryError!=='' ? ': '.$t2RetryError : ''));
-$t2Allocations=$db->query('SELECT COUNT(*) AS n FROM '.$db->prefix().'training_payment_allocation WHERE entity='.(int)$conf->entity.' AND fk_paiement='.$finalPaymentId);
-nativeCheck($t2Allocations && (int)$db->fetch_object($t2Allocations)->n===0,'T2 rollback removes payment allocations');
-$t2Snapshots=$db->query('SELECT COUNT(*) AS n FROM '.$db->prefix().'training_payment_snapshot WHERE entity='.(int)$conf->entity.' AND fk_paiement='.$finalPaymentId);
-nativeCheck($t2Snapshots && (int)$db->fetch_object($t2Snapshots)->n===0,'T2 rollback leaves no payment snapshots');
 
 $finalized=$nativeCheckout->finalizeNativeCheckout((int) $nativeCheckoutResult['checkout_session_id']);
 nativeCheck($finalized['success']===true && $finalized['status']==='completed','Retry completes checkout after T2 audit failure');
