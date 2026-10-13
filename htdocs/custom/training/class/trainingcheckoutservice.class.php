@@ -529,6 +529,14 @@ final class TrainingCheckoutService
                 ' AND entity='.$this->store->access->entity().
                 ' AND fk_session='.(int) $checkout->fk_session.' FOR UPDATE'
             );
+            // A converted hold is NOT unusable: it is the committed T1 state of
+            // a retry (ARCH-02). Retrying finalization must complete T2, not
+            // persist reconciliation. Only a missing/released/expired hold is
+            // unrecoverable here.
+            $holdStatus = $holdRows ? (string) $holdRows[0]->status : '';
+            if ($holdStatus === 'converted') {
+                return false;
+            }
             $holdIsUsable = $holdRows
                 && (string) $holdRows[0]->status === 'active'
                 && strtotime((string) $holdRows[0]->expires_utc.' UTC') > strtotime($this->store->decisionTime().' UTC');

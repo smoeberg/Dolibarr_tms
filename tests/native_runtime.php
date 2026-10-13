@@ -380,14 +380,14 @@ if ($a8RegressionFailures) {
     throw new RuntimeException("A8 ARCH-02 regression failures (".count($a8RegressionFailures)."):\n - ".implode("\n - ",$a8RegressionFailures));
 }
 
-$finalized=$nativeCheckout->finalizeNativeCheckout((int) $nativeCheckoutResult['checkout_session_id']);
+$finalized=$nativeCheckout->finalizeNativeCheckout((int) $t1SuccessCheckoutResult['checkout_session_id']);
 nativeCheck($finalized['success']===true && $finalized['status']==='completed','Retry completes checkout after T2 audit failure');
 nativeCheck(count($finalized['enrollment_ids'])===1,'Native checkout finalizes the participant enrollment');
 $confirmedRow=$db->query('SELECT status FROM '.$db->prefix().'training_enrollment WHERE entity='.(int)$conf->entity.' AND rowid='.(int)$finalized['enrollment_ids'][0]);
 nativeCheck($confirmedRow && $db->fetch_object($confirmedRow)->status==='confirmed','Successful T2 retry confirms the pending enrollment');
 $allocationRow=$db->query('SELECT SUM(amount) AS total FROM '.$db->prefix().'training_payment_allocation WHERE entity='.(int)$conf->entity.' AND fk_enrollment='.(int)$finalized['enrollment_ids'][0]);
 nativeCheck($allocationRow && abs((float)$db->fetch_object($allocationRow)->total-125.0)<0.000001,'Native checkout allocates only the enrollment obligation from native payment truth');
-$finalizedAgain=$nativeCheckout->finalizeNativeCheckout((int) $nativeCheckoutResult['checkout_session_id']);
+$finalizedAgain=$nativeCheckout->finalizeNativeCheckout((int) $t1SuccessCheckoutResult['checkout_session_id']);
 nativeCheck($finalizedAgain['status']==='completed' && count($finalizedAgain['enrollment_ids'])===1,'Native checkout finalization is idempotent');
 
 // A8 regression: full native payment after the SeatHold has been released.
