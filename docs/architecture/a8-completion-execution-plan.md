@@ -141,3 +141,16 @@ The named ARCH-00–ARCH-03 normative documents still need to be restored/locate
 2. Before schema/service implementation, specify the minimum persistent recovery contract in an architecture decision: partial payment stays `payment_redirected`; sufficient cumulative native payment is required; if the hold is no longer valid when the invoice becomes fully paid, persist `reconciliation_required`, never reactivate the hold or auto-allocate; excess payment is handled by Dolibarr accounting and cannot enlarge the frozen enrollment obligation. Recovery resolution must be an explicit authorized/manual action until a later decision defines safe automated outcomes.
 3. Pending Enrollment is a distinct persisted stage only if the architecture defines its owner, state transitions, idempotency key, and crash recovery. Otherwise do not invent a second state machine while implementing the recovery marker.
 4. Keep native Stripe as the only Stripe provider path; verify stale TMS Stripe code is unreachable/deleted and the checkout UI directs users to the native Dolibarr payment URL. A customer-return limitation must be stated as an operational constraint, not hidden behind browser success/failure pages.
+
+
+## Source-level acceptance checks added during continuation
+
+The current source confirms an important edge case: `observeNativePayment()` only accepts `payment_redirected` and `paiement_present`; once cumulative invoice payments reach the obligation it persists `paiement_present`. `finalizeNativeCheckout()` then calls `confirmReservation()` before allocating payment. If the SeatHold is already released/expired, this path can throw rather than persist the agreed reconciliation-required state. That is not safe recovery behaviour and needs a regression test before the implementation is changed.
+
+The current native-runtime scenario tests partial payment followed by a second payment to full settlement while the reservation remains valid. It does not cover:
+- full payment after SeatHold release/expiry;
+- assertion that the checkout is durably marked for reconciliation and no enrollment/allocation is created;
+- idempotent re-observation of the reconciliation-required state;
+- explicit, authorized resolution of that state.
+
+These are the next test-first acceptance cases. They should use a separate checkout fixture so the existing successful native-payment scenario remains unchanged. The test must verify database state, not only a returned status or thrown exception.
