@@ -250,6 +250,8 @@ $enrollments->releaseReservation($lateSession,$lateHoldId,'Released before nativ
 $lateHoldRow=$db->query('SELECT status FROM '.$db->prefix().'training_seat_hold WHERE rowid='.$lateHoldId.' AND entity='.(int)$conf->entity);
 nativeCheck($lateHoldRow && $db->fetch_object($lateHoldRow)->status==='released','Late-payment fixture SeatHold is terminally released');
 $latePaymentId=$createNativePayment(125.00,(int)$lateCheckoutResult['invoice_id']);
+$lateAuditBefore=$db->query('SELECT COUNT(*) AS n FROM '.$db->prefix().'training_audit WHERE entity='.(int)$conf->entity.' AND object_type=\'checkout_session\' AND fk_object='.(int)$lateCheckoutResult['checkout_session_id'].' AND action=\'reconciliation_required\'');
+$lateAuditBeforeCount=$lateAuditBefore ? (int)$db->fetch_object($lateAuditBefore)->n : -1;
 $lateFinalize=null; $lateFinalizeError='';
 try {
     $lateFinalize=$nativeCheckout->finalizeNativeCheckout((int)$lateCheckoutResult['checkout_session_id']);
@@ -262,6 +264,9 @@ nativeCheck(
 );
 $lateCheckoutRow=$db->query('SELECT status FROM '.$db->prefix().'training_checkout_session WHERE rowid='.(int)$lateCheckoutResult['checkout_session_id'].' AND entity='.(int)$conf->entity);
 nativeCheck($lateCheckoutRow && $db->fetch_object($lateCheckoutRow)->status==='reconciliation_required','Late payment recovery state is durable in checkout row');
+$lateAuditAfter=$db->query('SELECT COUNT(*) AS n FROM '.$db->prefix().'training_audit WHERE entity='.(int)$conf->entity.' AND object_type=\'checkout_session\' AND fk_object='.(int)$lateCheckoutResult['checkout_session_id'].' AND action=\'reconciliation_required\'');
+$lateAuditAfterCount=$lateAuditAfter ? (int)$db->fetch_object($lateAuditAfter)->n : -1;
+nativeCheck($lateAuditBeforeCount===0 && $lateAuditAfterCount===1,'Reconciliation status and exactly one audit event are persisted together');
 $lateEnrollmentRows=$db->query('SELECT COUNT(*) AS n FROM '.$db->prefix().'training_checkout_participant WHERE entity='.(int)$conf->entity.' AND fk_checkout_session='.(int)$lateCheckoutResult['checkout_session_id'].' AND fk_enrollment IS NOT NULL');
 nativeCheck($lateEnrollmentRows && (int)$db->fetch_object($lateEnrollmentRows)->n===0,'Late payment does not create or link an enrollment');
 $lateAllocationRows=$db->query('SELECT COUNT(*) AS n FROM '.$db->prefix().'training_payment_allocation WHERE entity='.(int)$conf->entity.' AND fk_paiement='.$latePaymentId);
@@ -270,6 +275,8 @@ $lateHoldRow=$db->query('SELECT status FROM '.$db->prefix().'training_seat_hold 
 nativeCheck($lateHoldRow && $db->fetch_object($lateHoldRow)->status==='released','Late-payment processing never reactivates the released SeatHold');
 $lateFinalizeAgain=$nativeCheckout->finalizeNativeCheckout((int)$lateCheckoutResult['checkout_session_id']);
 nativeCheck(($lateFinalizeAgain['status']??'')==='reconciliation_required','Late-payment reconciliation observation/finalization is idempotent');
+$lateAuditAfterRetry=$db->query('SELECT COUNT(*) AS n FROM '.$db->prefix().'training_audit WHERE entity='.(int)$conf->entity.' AND object_type=\'checkout_session\' AND fk_object='.(int)$lateCheckoutResult['checkout_session_id'].' AND action=\'reconciliation_required\'');
+nativeCheck($lateAuditAfterRetry && (int)$db->fetch_object($lateAuditAfterRetry)->n===1,'Repeated finalization does not duplicate reconciliation audit');
 
 $tables=array('training_enrollment_commercial','training_seat_hold','training_seat_member','training_course_profile','training_course_version','training_audit','training_session','training_session_slot','training_learner','training_enrollment','training_attendance','training_billing_line','training_billing_allocation','training_native_payment_queue','training_trainer','training_trainer_assignment');
 $counts=array(); foreach ($tables as $table) { $counts[$table]=nativeCount($table); }
