@@ -146,7 +146,7 @@ final class TrainingEnrollmentService
             if ($session->status !== 'open') { throw new RuntimeException('TrainingSessionNotOpen'); }
             foreach ($contactIds as $contactId) {
                 [, $enrollment] = $this->participant($sessionId, $contactId);
-                if ($enrollment && $enrollment[0]->status === 'confirmed') { throw new RuntimeException('TrainingParticipantAlreadyBooked'); }
+                if ($enrollment && in_array($enrollment[0]->status, array('confirmed', 'PENDING_ENROLLMENT'), true)) { throw new RuntimeException('TrainingParticipantAlreadyBooked'); }
                 if ($this->reservedContact($sessionId, $contactId, $at)) { throw new RuntimeException('TrainingParticipantReserved'); }
             }
             if ($this->s->capacity($sessionId, true, $at)['occupied'] + count($contactIds) > (int) $session->capacity) { throw new RuntimeException('TrainingSessionFull'); }
@@ -176,7 +176,7 @@ final class TrainingEnrollmentService
             foreach ($members as $member) {
                 $contactId = (int) $member->fk_socpeople;
                 $participants[$contactId] = $this->participant($sessionId, $contactId);
-                if ($participants[$contactId][1] && $participants[$contactId][1][0]->status === 'confirmed') { throw new RuntimeException('TrainingParticipantAlreadyBooked'); }
+                if ($participants[$contactId][1] && in_array($participants[$contactId][1][0]->status, array('confirmed', 'PENDING_ENROLLMENT'), true)) { throw new RuntimeException('TrainingParticipantAlreadyBooked'); }
                 if ($this->reservedContact($sessionId, $contactId, $at, $holdId)) { throw new RuntimeException('TrainingParticipantReserved'); }
             }
             $capacity = $this->s->capacity($sessionId, true, $at);
