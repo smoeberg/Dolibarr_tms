@@ -74,6 +74,9 @@ class modTraining extends DolibarrModules
         if ($this->applyNativePaymentQueueMigration() < 0) {
             return -1;
         }
+        if ($this->applyEnrollmentStatusMigration() < 0) {
+            return -1;
+        }
         return $this->_init(array(), $options);
     }
 
@@ -101,6 +104,34 @@ class modTraining extends DolibarrModules
         ) ENGINE=InnoDB';
         if (!$this->db->query($sql)) {
             $this->error = 'Training native payment queue schema installation failed.';
+            return -1;
+        }
+        return 1;
+    }
+
+
+    /** PENDING_ENROLLMENT is a persisted A8 T1 state and must fit on upgrades. */
+    private function applyEnrollmentStatusMigration(): int
+    {
+        $table = $this->db->prefix().'training_enrollment';
+        $res = $this->db->query(
+            "SELECT column_type FROM information_schema.columns WHERE table_schema=DATABASE()".
+            " AND table_name='".$this->db->escape($table)."' AND column_name='status'"
+        );
+        if (!$res) {
+            $this->error = 'Training enrollment status migration could not inspect schema.';
+            return -1;
+        }
+        $row = $this->db->fetch_object($res);
+        if (!$row) {
+            $this->error = 'Training enrollment status migration could not find status column.';
+            return -1;
+        }
+        if (preg_match('/^varchar\\((\\d+)\\)$/i', (string)$row->column_type, $m) && (int)$m[1] >= 24) {
+            return 1;
+        }
+        if (!$this->db->query('ALTER TABLE '.$table.' MODIFY status varchar(32) NOT NULL')) {
+            $this->error = 'Training enrollment status migration failed.';
             return -1;
         }
         return 1;
