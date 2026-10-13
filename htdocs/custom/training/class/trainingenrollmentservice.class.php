@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__.'/trainingstore.class.php';
 require_once __DIR__.'/trainingpriceservice.class.php';
+require_once __DIR__.'/trainingpaymentservice.class.php';
 final class TrainingEnrollmentService
 {
     private TrainingStore $s;
@@ -65,7 +66,7 @@ final class TrainingEnrollmentService
             $existing = $learnerId ? $this->s->rows('SELECT * FROM '.$this->s->table('enrollment').' WHERE entity='.$entity.' AND fk_session='.$id.' AND fk_learner='.$learnerId.' FOR UPDATE') : array();
             return array($learnerId, $existing);
     }
-    private function writeConfirmed(int $id, int $contactId, int $learnerId, array $existing): int {
+    private function writeConfirmed(int $id, int $contactId, int $learnerId, array $existing, bool $pending = false): int {
             $entity = $this->s->access->entity();
             if (!$learnerId) {
                 $this->s->query('INSERT INTO '.$this->s->table('learner').' (entity, fk_socpeople, datec, fk_user_author) VALUES ('.$entity.', '.$contactId.', '.$this->s->now().', '.$this->s->access->actor().')');
@@ -74,14 +75,16 @@ final class TrainingEnrollmentService
             if ($existing) {
                 if ($existing[0]->status !== 'cancelled') { throw new RuntimeException('TrainingInvalidTransition'); }
                 $enrollmentId = (int) $existing[0]->rowid;
-                $this->s->query('UPDATE '.$this->s->table('enrollment')." SET status='confirmed', cancellation_reason=NULL, changed_at=".$this->s->now().', fk_user_modifier='.$this->s->access->actor().' WHERE rowid='.$enrollmentId.' AND entity='.$entity);
+                $newStatus = $pending ? 'PENDING_ENROLLMENT' : 'confirmed';
+                $this->s->query('UPDATE '.$this->s->table('enrollment').' SET status='.$this->s->text($newStatus).', cancellation_reason=NULL, changed_at='.$this->s->now().', fk_user_modifier='.$this->s->access->actor().' WHERE rowid='.$enrollmentId.' AND entity='.$entity);
             } else {
-                $this->s->query('INSERT INTO '.$this->s->table('enrollment').' (entity, fk_session, fk_learner, status, datec, fk_user_author, changed_at, fk_user_modifier) VALUES ('.$entity.', '.$id.', '.$learnerId.", 'confirmed', ".$this->s->now().', '.$this->s->access->actor().', '.$this->s->now().', '.$this->s->access->actor().')');
+                $newStatus = $pending ? 'PENDING_ENROLLMENT' : 'confirmed';
+                $this->s->query('INSERT INTO '.$this->s->table('enrollment').' (entity, fk_session, fk_learner, status, datec, fk_user_author, changed_at, fk_user_modifier) VALUES ('.$entity.', '.$id.', '.$learnerId.', '.$this->s->text($newStatus).', '.$this->s->now().', '.$this->s->access->actor().', '.$this->s->now().', '.$this->s->access->actor().')');
                 $enrollmentId = (int) $this->s->db->last_insert_id($this->s->table('enrollment'));
             }
             // Create price snapshot at confirmation time - freezes catalog price
             $this->priceService->createSnapshot($id, $enrollmentId, $contactId);
-            $this->s->audit('enrollment', $enrollmentId, 'confirmed', array('session_id' => $id, 'reconfirmed' => (bool) $existing));
+            $this->s->audit('enrollment', $enrollmentId, 'confirmed', array('session_id' => $id, 'reconfirmed' => (bool) $existing, 'pending_payment_confirmation' => $pending));
             return $enrollmentId;
     }
     private function reservedContact(int $sessionId, int $contactId, string $at, int $except = 0): bool {
@@ -144,7 +147,7 @@ final class TrainingEnrollmentService
             if ($session->status !== 'open') { throw new RuntimeException('TrainingSessionNotOpen'); }
             foreach ($contactIds as $contactId) {
                 [, $enrollment] = $this->participant($sessionId, $contactId);
-                if ($enrollment && $enrollment[0]->status === 'confirmed') { throw new RuntimeException('TrainingParticipantAlreadyBooked'); }
+                if ($enrollment && in_array($enrollment[0]->status, array('confirmed', 'PENDING_ENROLLMENT'), true)) { throw new RuntimeException('TrainingParticipantAlreadyBooked'); }
                 if ($this->reservedContact($sessionId, $contactId, $at)) { throw new RuntimeException('TrainingParticipantReserved'); }
             }
             if ($this->s->capacity($sessionId, true, $at)['occupied'] + count($contactIds) > (int) $session->capacity) { throw new RuntimeException('TrainingSessionFull'); }
@@ -160,9 +163,9 @@ final class TrainingEnrollmentService
         });
     }
     /** Explicit coordinator approval; does not verify, imply or record payment. */
-    public function confirmReservation(int $sessionId, int $holdId, string $reason): array {
+    public function confirmReservation(int $sessionId, int $holdId, string $reason, bool $pending = false): array {
         $this->allow('write'); $this->s->access->requireContactRead(); $reason = $this->reason($reason);
-        return $this->s->transaction(function () use ($sessionId, $holdId, $reason) {
+        return $this->s->transaction(function () use ($sessionId, $holdId, $reason, $pending) {
             $session = $this->s->session($sessionId, true); $at = $this->s->decisionTime();
             $hold = $this->seatHold($sessionId, $holdId, true); $members = $this->seatMembers($holdId, true);
             if (count($members) !== (int) $hold->qty) { throw new RuntimeException('TrainingReservationIntegrityError'); }
@@ -174,7 +177,7 @@ final class TrainingEnrollmentService
             foreach ($members as $member) {
                 $contactId = (int) $member->fk_socpeople;
                 $participants[$contactId] = $this->participant($sessionId, $contactId);
-                if ($participants[$contactId][1] && $participants[$contactId][1][0]->status === 'confirmed') { throw new RuntimeException('TrainingParticipantAlreadyBooked'); }
+                if ($participants[$contactId][1] && in_array($participants[$contactId][1][0]->status, array('confirmed', 'PENDING_ENROLLMENT'), true)) { throw new RuntimeException('TrainingParticipantAlreadyBooked'); }
                 if ($this->reservedContact($sessionId, $contactId, $at, $holdId)) { throw new RuntimeException('TrainingParticipantReserved'); }
             }
             $capacity = $this->s->capacity($sessionId, true, $at);
@@ -185,7 +188,7 @@ final class TrainingEnrollmentService
             foreach ($members as $member) {
                 $contactId = (int) $member->fk_socpeople;
                 [$learnerId, $existing] = $participants[$contactId];
-                $id = $this->writeConfirmed($sessionId, $contactId, $learnerId, $existing);
+                $id = $this->writeConfirmed($sessionId, $contactId, $learnerId, $existing, $pending);
                 $this->s->query('UPDATE '.$this->s->table('seat_member').' SET fk_enrollment='.$id.' WHERE rowid='.(int) $member->rowid.' AND entity='.$this->s->access->entity());
                 $ids[] = $id;
             }
@@ -194,6 +197,74 @@ final class TrainingEnrollmentService
             return $ids;
         });
     }
+
+    /**
+     * T2: atomically confirm a committed pending enrollment and allocate its
+     * correlated invoice payments. A replay of a completed T2 is a no-op.
+     */
+    public function confirmPending(int $enrollmentId, int $paymentId, string $reason): int {
+        $this->allow('write');
+        $reason = $this->reason($reason);
+        return $this->s->transaction(function () use ($enrollmentId, $paymentId, $reason) {
+            $entity = $this->s->access->entity();
+            $rows = $this->s->rows(
+                'SELECT e.*, l.fk_socpeople FROM '.$this->s->table('enrollment').' e '.
+                'JOIN '.$this->s->table('learner').' l ON l.rowid=e.fk_learner AND l.entity=e.entity '.
+                'WHERE e.rowid='.$enrollmentId.' AND e.entity='.$entity.' FOR UPDATE'
+            );
+            if (!$rows) throw new RuntimeException('TrainingEnrollmentNotFound');
+            $enrollment = $rows[0];
+            $sessionId = (int) $enrollment->fk_session;
+            $this->s->session($sessionId, true);
+            $this->s->contact((int) $enrollment->fk_socpeople);
+            if ($enrollment->status === 'confirmed') return $enrollmentId;
+            if ($enrollment->status !== 'PENDING_ENROLLMENT') throw new RuntimeException('TrainingPendingEnrollmentRequired');
+
+            $checkoutRows = $this->s->rows(
+                'SELECT cs.native_commercial_object_id AS invoice_id FROM '.$this->s->table('checkout_participant').' cp '.
+                'JOIN '.$this->s->table('checkout_session').' cs ON cs.rowid=cp.fk_checkout_session AND cs.entity=cp.entity '.
+                'WHERE cp.entity='.$entity.' AND cp.fk_enrollment='.$enrollmentId.' FOR UPDATE'
+            );
+            if (!$checkoutRows || (int)$checkoutRows[0]->invoice_id < 1) throw new RuntimeException('TrainingPendingCheckoutCorrelationRequired');
+            $invoiceId = (int)$checkoutRows[0]->invoice_id;
+            $payments = $this->s->rows(
+                'SELECT p.rowid AS payment_id, SUM(pf.amount) AS invoice_amount FROM '.$this->s->db->prefix().'paiement p '.
+                'JOIN '.$this->s->db->prefix().'paiement_facture pf ON pf.fk_paiement=p.rowid '.
+                'WHERE p.entity='.$entity.' AND pf.fk_facture='.$invoiceId.' GROUP BY p.rowid ORDER BY p.rowid'
+            );
+            if (!$payments) throw new RuntimeException('TrainingNativePaymentRequired');
+
+            $this->s->query(
+                'UPDATE '.$this->s->table('enrollment').' SET status=\'confirmed\', changed_at='.$this->s->now().
+                ', fk_user_modifier='.$this->s->access->actor().' WHERE rowid='.$enrollmentId.' AND entity='.$entity.
+                ' AND status=\'PENDING_ENROLLMENT\''
+            );
+            $this->s->audit('enrollment', $enrollmentId, 'confirmed', array(
+                'session_id'=>$sessionId, 'source'=>'native_checkout_t2', 'payment_id'=>$paymentId, 'reason'=>$reason
+            ));
+            $paymentService = new TrainingPaymentService($this->s);
+            foreach ($payments as $row) {
+                $nativePaymentId = (int)$row->payment_id;
+                $already = $this->s->rows(
+                    'SELECT rowid FROM '.$this->s->table('payment_allocation').
+                    ' WHERE entity='.$entity.' AND fk_enrollment='.$enrollmentId.' AND fk_paiement='.$nativePaymentId.' FOR UPDATE'
+                );
+                if ($already) continue;
+                $balance = $paymentService->getEnrollmentBalance($sessionId, $enrollmentId);
+                if ($balance['remaining'] === null || bccomp((string)$balance['remaining'], '0', 8) <= 0) break;
+                $amount = min((float)$row->invoice_amount, (float)$balance['remaining']);
+                if ($amount <= 0.00000001) continue;
+                $paymentService->allocatePayment(
+                    $sessionId, $nativePaymentId,
+                    array($enrollmentId => number_format($amount, 8, '.', '')),
+                    $reason, true
+                );
+            }
+            return $enrollmentId;
+        });
+    }
+
+
     public function releaseReservation(int $sessionId, int $holdId, string $reason): void {
         $this->allow('write'); $this->s->access->requireContactRead(); $reason = $this->reason($reason);
         $this->s->transaction(function () use ($sessionId, $holdId, $reason) {

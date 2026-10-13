@@ -71,7 +71,7 @@ final class TrainingStore
     }
     public function occupied(int $id, bool $lock = false): int {
         // Current locking read after locking session. No stale COUNT snapshot.
-        return count($this->rows('SELECT rowid FROM '.$this->table('enrollment').' WHERE entity='.$this->access->entity().' AND fk_session='.$id." AND status='confirmed'".($lock ? ' FOR UPDATE' : '')));
+        return count($this->rows('SELECT rowid FROM '.$this->table('enrollment').' WHERE entity='.$this->access->entity().' AND fk_session='.$id." AND status IN ('confirmed','PENDING_ENROLLMENT')".($lock ? ' FOR UPDATE' : '')));
     }
     public function decisionTime(): string {
         // Server/database UTC, evaluated after obtaining the session mutex for writes.
