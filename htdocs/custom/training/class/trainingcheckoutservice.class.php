@@ -408,35 +408,8 @@ final class TrainingCheckoutService
         if (!$participants) throw new RuntimeException('TrainingCheckoutNoParticipants');
 
         // A paid invoice is not authority to reclaim a released or expired
-        // SeatHold. Persist reconciliation-required before touching enrollment
-        // or allocation, so retries converge on a durable operator-visible state.
-        $holdRows = $this->store->rows(
-            'SELECT status, expires_utc FROM '.$this->store->table('seat_hold').
-            ' WHERE rowid='.(int) $checkout->seat_hold_id.
-            ' AND entity='.$this->store->access->entity().
-            ' AND fk_session='.(int) $checkout->fk_session
-        );
-        $holdIsUsable = $holdRows
-            && (string) $holdRows[0]->status === 'active'
-            && strtotime((string) $holdRows[0]->expires_utc.' UTC') > strtotime($this->store->decisionTime().' UTC');
-        if (!$holdIsUsable) {
-            $this->store->query(
-                'UPDATE '.$this->store->table('checkout_session').
-                ' SET status='.$this->store->text('reconciliation_required').
-                ', changed_at='.$this->store->now().
-                ', fk_user_modifier='.$this->store->access->actor().
-                ' WHERE rowid='.$checkoutSessionId.
-                ' AND entity='.$this->store->access->entity().
-                ' AND status='.$this->store->text('paiement_present')
-            );
-            $this->store->audit('checkout_session', $checkoutSessionId, 'reconciliation_required', array(
-                'reason' => 'native_payment_after_seat_hold_release_or_expiry',
-                'seat_hold_id' => (int) $checkout->seat_hold_id,
-                'invoice_id' => (int) $checkout->native_commercial_object_id,
-                'payment_id' => (int) $checkout->native_payment_id,
-                'paid_amount' => (float) $checkout->native_payment_amount,
-                'required_amount' => (float) $checkout->total_amount_ttc,
-            ));
+        // SeatHold. The transition and audit are committed atomically.
+        if ($this->markReconciliationIfHoldUnusable($checkoutSessionId)) {
             return array(
                 'success'=>false,
                 'checkout_session_id'=>$checkoutSessionId,
@@ -451,7 +424,24 @@ final class TrainingCheckoutService
         // with an active seat hold (TrainingParticipantReserved), which the
         // checkout session itself created.
         $holdId = (int) $checkout->seat_hold_id;
-        $this->enrollmentService->confirmReservation((int) $checkout->fk_session, $holdId, 'native_checkout_finalize');
+        try {
+            $this->enrollmentService->confirmReservation((int) $checkout->fk_session, $holdId, 'native_checkout_finalize');
+        } catch (RuntimeException $e) {
+            // The hold may have been released/expired after the preflight check.
+            // Only translate the specific transition failure when a fresh,
+            // locked read proves that the hold is no longer usable. Preserve
+            // unrelated failures (capacity, session state, integrity, etc.).
+            if ($e->getMessage() !== 'TrainingInvalidTransition'
+                || !$this->markReconciliationIfHoldUnusable($checkoutSessionId)) {
+                throw $e;
+            }
+            return array(
+                'success'=>false,
+                'checkout_session_id'=>$checkoutSessionId,
+                'status'=>'reconciliation_required',
+                'enrollment_ids'=>array(),
+            );
+        }
         $memberMap = array();
         foreach ($this->enrollmentService->reservationMembers((int) $checkout->fk_session, $holdId) as $member) {
             if ((int) $member->fk_enrollment > 0) { $memberMap[(int) $member->fk_socpeople] = (int) $member->fk_enrollment; }
@@ -522,6 +512,68 @@ final class TrainingCheckoutService
             'status'=>'completed',
             'enrollment_ids'=>$enrollmentIds
         );
+    }
+
+    /**
+     * Atomically persist reconciliation when the checkout's hold is unusable.
+     *
+     * Locks checkout first, then its hold, so concurrent finalizers serialize
+     * and only the first transition writes the audit event. The method is safe
+     * to call both before reservation conversion and after a narrowly handled
+     * TrainingInvalidTransition race.
+     */
+    private function markReconciliationIfHoldUnusable(int $checkoutSessionId): bool
+    {
+        return $this->store->transaction(function () use ($checkoutSessionId) {
+            $checkoutRows = $this->store->rows(
+                'SELECT * FROM '.$this->store->table('checkout_session').
+                ' WHERE rowid='.$checkoutSessionId.
+                ' AND entity='.$this->store->access->entity().' FOR UPDATE'
+            );
+            if (!$checkoutRows) {
+                throw new RuntimeException('TrainingCheckoutSessionNotFound');
+            }
+            $checkout = $checkoutRows[0];
+            $status = (string) $checkout->status;
+            if ($status === 'reconciliation_required') {
+                return true;
+            }
+            if ($status !== 'paiement_present') {
+                return false;
+            }
+
+            $holdRows = $this->store->rows(
+                'SELECT status, expires_utc FROM '.$this->store->table('seat_hold').
+                ' WHERE rowid='.(int) $checkout->seat_hold_id.
+                ' AND entity='.$this->store->access->entity().
+                ' AND fk_session='.(int) $checkout->fk_session.' FOR UPDATE'
+            );
+            $holdIsUsable = $holdRows
+                && (string) $holdRows[0]->status === 'active'
+                && strtotime((string) $holdRows[0]->expires_utc.' UTC') > strtotime($this->store->decisionTime().' UTC');
+            if ($holdIsUsable) {
+                return false;
+            }
+
+            $this->store->query(
+                'UPDATE '.$this->store->table('checkout_session').
+                ' SET status='.$this->store->text('reconciliation_required').
+                ', changed_at='.$this->store->now().
+                ', fk_user_modifier='.$this->store->access->actor().
+                ' WHERE rowid='.$checkoutSessionId.
+                ' AND entity='.$this->store->access->entity().
+                ' AND status='.$this->store->text('paiement_present')
+            );
+            $this->store->audit('checkout_session', $checkoutSessionId, 'reconciliation_required', array(
+                'reason' => 'native_payment_after_seat_hold_release_or_expiry',
+                'seat_hold_id' => (int) $checkout->seat_hold_id,
+                'invoice_id' => (int) $checkout->native_commercial_object_id,
+                'payment_id' => (int) $checkout->native_payment_id,
+                'paid_amount' => (float) $checkout->native_payment_amount,
+                'required_amount' => (float) $checkout->total_amount_ttc,
+            ));
+            return true;
+        });
     }
 
     private function nativePaymentUnallocatedAmount(int $paymentId): float
