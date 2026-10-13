@@ -120,3 +120,24 @@ This is a narrow source/test inspection, not a claim that the whole repository o
 - First locate and read the actual current ARCH-00–ARCH-03 files and reconcile their names/locations against this checklist. If they cannot be found on `main`, record that as a repository documentation gap rather than guessing paths.
 - Ratify the already-established payment/hold rules plus the still-open late-payment recovery outcome and Stripe ownership/return-flow policy in the actual architecture documents.
 - Then add failing tests for the specific gaps above before changing production code. Keep the worker process/cron proof as a separate target-environment gate; do not claim that direct native-runtime service tests prove it.
+
+
+## Architecture-document discovery correction (2026-10-13)
+
+The earlier baseline note that the A8 architecture documents could not be located was too broad. The exact ARCH-00–ARCH-03 filenames described in prior discussion are not present in the current `main` tree under `docs/architecture/`; however, the following active Phase 3 documents do exist and have now been inspected:
+
+- `docs/architecture/a8-fase3-checkout-payment-inventory.md`
+- `docs/architecture/a8-fase3-implementation-brief.md`
+- `docs/architecture/a8-fase3b-stripe-50300-capability-matrix.md`
+- `docs/architecture/native-payment-worker.md`
+
+The Phase 3 brief and Stripe capability matrix already establish the ownership boundary: Dolibarr 50300 owns Stripe/provider/payment verification and native `Paiement`; TMS owns checkout correlation, SeatHold, price snapshot, enrollment orchestration, and allocation. The matrix explicitly documents the return-flow limitation: if the payer never returns through Dolibarr's payment flow, TMS must not assume immediate observation. Therefore the Stripe provider-ownership decision is not an open question; the remaining task is to verify that the implemented user journey communicates/handles this limitation and contains no parallel Stripe engine.
+
+The named ARCH-00–ARCH-03 normative documents still need to be restored/located or explicitly superseded by a versioned architecture decision. Do not treat the Phase 3 implementation brief as proof that allocation identity, persisted Pending Enrollment, or late-payment recovery rules are fully specified.
+
+## Revised immediate next steps
+
+1. Test-first, narrow scope: add native-runtime assertions for durable checkout recovery markers and checkout-table retention; add direct worker-path coverage separately from direct finalizer coverage.
+2. Before schema/service implementation, specify the minimum persistent recovery contract in an architecture decision: partial payment stays `payment_redirected`; sufficient cumulative native payment is required; if the hold is no longer valid when the invoice becomes fully paid, persist `reconciliation_required`, never reactivate the hold or auto-allocate; excess payment is handled by Dolibarr accounting and cannot enlarge the frozen enrollment obligation. Recovery resolution must be an explicit authorized/manual action until a later decision defines safe automated outcomes.
+3. Pending Enrollment is a distinct persisted stage only if the architecture defines its owner, state transitions, idempotency key, and crash recovery. Otherwise do not invent a second state machine while implementing the recovery marker.
+4. Keep native Stripe as the only Stripe provider path; verify stale TMS Stripe code is unreachable/deleted and the checkout UI directs users to the native Dolibarr payment URL. A customer-return limitation must be stated as an operational constraint, not hidden behind browser success/failure pages.
