@@ -45,6 +45,7 @@ class TestDb {
     public int $commits = 0;
     public int $rollbacks = 0;
     public bool $failAudit = false;
+    public string $statusColumnType = 'varchar(32)';
     public function prefix() { return 'test_'; }
     public function escape($text) { return addslashes($text); }
     public function idate($date) { return gmdate('Y-m-d H:i:s', $date); }
@@ -55,7 +56,12 @@ class TestDb {
     public function query($sql) {
         $this->sql[] = $sql;
         if ($this->failAudit && str_contains($sql, 'INSERT INTO test_training_audit')) { return false; }
-        if (str_starts_with($sql, 'SELECT')) { return new TestResult(array_shift($this->results) ?? array()); }
+        if (str_starts_with($sql, 'SELECT')) {
+            if (str_contains($sql, 'information_schema.columns') && str_contains($sql, "column_name = 'status'")) {
+                return new TestResult(array((object) array('column_type' => $this->statusColumnType)));
+            }
+            return new TestResult(array_shift($this->results) ?? array());
+        }
         return true;
     }
     public function fetch_object($result) { return array_shift($result->rows) ?? null; }
@@ -122,6 +128,13 @@ $module->loadResult = 0;
 check($module->init() === -1 && $module->initCalls === 0, 'schema failure prevents activation');
 $module->loadResult = 1;
 check($module->init() === 1 && $module->initCalls === 1, 'valid schema permits activation');
+$dbNarrow = new TestDb();
+$dbNarrow->statusColumnType = 'varchar(16)';
+$dbNarrow->sql = array();
+$moduleNarrow = new modTraining($dbNarrow);
+$moduleNarrow->loadResult = 1;
+check($moduleNarrow->init() === 1, 'narrow status column is migrated during activation');
+check((bool) array_filter($dbNarrow->sql, fn($sql) => str_contains($sql, 'ALTER TABLE test_training_checkout_session MODIFY status varchar(32)')), 'narrow status migration issues ALTER TABLE');
 require_once __DIR__.'/../htdocs/custom/training/class/trainingslots.class.php';
 $slot = array('start' => '2026-10-20T09:00:00+02:00', 'end' => '2026-10-20T16:00:00+02:00');
 check(TrainingSlots::normalize(array($slot), 'Europe/Copenhagen')[0]['duration_minutes'] === 420, 'timezone-aware teaching minutes');
