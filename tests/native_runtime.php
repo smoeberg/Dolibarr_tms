@@ -219,9 +219,54 @@ nativeCheck(
 );
 $observeAgain=$nativeCheckout->observeNativePayment((int) $nativeCheckoutResult['checkout_session_id']);
 nativeCheck($observeAgain['status']==='paiement_present' && $observeAgain['payment_id']===$finalPaymentId && abs($observeAgain['paid_amount']-125.0)<0.000001,'Native paiement_present observation is idempotent');
+// A8 ARCH-02 two-transaction regression: T1 must commit hold conversion + PENDING_ENROLLMENT,
+// while T2 confirmation/allocation/snapshot must be a separate transaction.
+// These MySQL triggers inject deterministic audit failures without changing product code.
+$trainingAuditTable=$db->prefix().'training_audit';
+$t1Trigger='training_ci_fail_t1_audit';
+$t1TriggerSql='CREATE TRIGGER '.$t1Trigger.' BEFORE INSERT ON '.$trainingAuditTable.
+    " FOR EACH ROW BEGIN IF NEW.object_type = 'seat_hold' AND NEW.action = 'converted' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'CI_T1_AUDIT_FAILURE'; END IF; END";
+nativeCheck((bool)$db->query($t1TriggerSql),'Install T1 audit-failure trigger');
+$t1Error='';
+try {
+    $nativeCheckout->finalizeNativeCheckout((int) $nativeCheckoutResult['checkout_session_id']);
+} catch (Throwable $e) {
+    $t1Error=$e->getMessage();
+}
+nativeCheck((bool)$db->query('DROP TRIGGER '.$t1Trigger),'Remove T1 audit-failure trigger');
+nativeCheck($t1Error!=='','Injected T1 audit failure aborts finalization');
+$t1Hold=$db->query('SELECT status FROM '.$db->prefix().'training_seat_hold WHERE rowid='.$nativeCheckoutHoldId.' AND entity='.(int)$conf->entity);
+nativeCheck($t1Hold && $db->fetch_object($t1Hold)->status==='active','T1 rollback leaves SeatHold active');
+$t1Links=$db->query('SELECT COUNT(*) AS n FROM '.$db->prefix().'training_checkout_participant WHERE entity='.(int)$conf->entity.' AND fk_checkout_session='.(int)$nativeCheckoutResult['checkout_session_id'].' AND fk_enrollment IS NOT NULL');
+nativeCheck($t1Links && (int)$db->fetch_object($t1Links)->n===0,'T1 rollback leaves no linked pending enrollment');
+
+$t2Trigger='training_ci_fail_t2_audit';
+$t2TriggerSql='CREATE TRIGGER '.$t2Trigger.' BEFORE INSERT ON '.$trainingAuditTable.
+    " FOR EACH ROW BEGIN IF NEW.object_type = 'payment_allocation' AND NEW.action = 'allocated' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'CI_T2_AUDIT_FAILURE'; END IF; END";
+nativeCheck((bool)$db->query($t2TriggerSql),'Install T2 audit-failure trigger');
+$t2Error='';
+try {
+    $nativeCheckout->finalizeNativeCheckout((int) $nativeCheckoutResult['checkout_session_id']);
+} catch (Throwable $e) {
+    $t2Error=$e->getMessage();
+}
+nativeCheck((bool)$db->query('DROP TRIGGER '.$t2Trigger),'Remove T2 audit-failure trigger');
+nativeCheck($t2Error!=='','Injected T2 audit failure aborts confirmation');
+$t2Hold=$db->query('SELECT status FROM '.$db->prefix().'training_seat_hold WHERE rowid='.$nativeCheckoutHoldId.' AND entity='.(int)$conf->entity);
+nativeCheck($t2Hold && $db->fetch_object($t2Hold)->status==='converted','T1 remains committed after T2 rollback');
+$t2Pending=$db->query('SELECT e.status FROM '.$db->prefix().'training_checkout_participant cp JOIN '.$db->prefix().'training_enrollment e ON e.rowid=cp.fk_enrollment AND e.entity=cp.entity WHERE cp.entity='.(int)$conf->entity.' AND cp.fk_checkout_session='.(int)$nativeCheckoutResult['checkout_session_id']);
+$t2PendingRow=$t2Pending ? $db->fetch_object($t2Pending) : null;
+nativeCheck($t2PendingRow && $t2PendingRow->status==='PENDING_ENROLLMENT','T2 rollback preserves a persistent, queryable PENDING_ENROLLMENT');
+$t2Allocations=$db->query('SELECT COUNT(*) AS n FROM '.$db->prefix().'training_payment_allocation WHERE entity='.(int)$conf->entity.' AND fk_paiement='.$finalPaymentId);
+nativeCheck($t2Allocations && (int)$db->fetch_object($t2Allocations)->n===0,'T2 rollback removes payment allocations');
+$t2Snapshots=$db->query('SELECT COUNT(*) AS n FROM '.$db->prefix().'training_payment_snapshot ps JOIN '.$db->prefix().'training_payment_allocation pa ON pa.rowid=ps.fk_allocation AND pa.entity=ps.entity WHERE pa.entity='.(int)$conf->entity.' AND pa.fk_paiement='.$finalPaymentId);
+nativeCheck($t2Snapshots && (int)$db->fetch_object($t2Snapshots)->n===0,'T2 rollback leaves no payment snapshots');
+
 $finalized=$nativeCheckout->finalizeNativeCheckout((int) $nativeCheckoutResult['checkout_session_id']);
-nativeCheck($finalized['success']===true && $finalized['status']==='completed','Native checkout finalizes only from persisted Dolibarr Paiement');
+nativeCheck($finalized['success']===true && $finalized['status']==='completed','Retry completes checkout after T2 audit failure');
 nativeCheck(count($finalized['enrollment_ids'])===1,'Native checkout finalizes the participant enrollment');
+$confirmedRow=$db->query('SELECT status FROM '.$db->prefix().'training_enrollment WHERE entity='.(int)$conf->entity.' AND rowid='.(int)$finalized['enrollment_ids'][0]);
+nativeCheck($confirmedRow && $db->fetch_object($confirmedRow)->status==='confirmed','Successful T2 retry confirms the pending enrollment');
 $allocationRow=$db->query('SELECT SUM(amount) AS total FROM '.$db->prefix().'training_payment_allocation WHERE entity='.(int)$conf->entity.' AND fk_enrollment='.(int)$finalized['enrollment_ids'][0]);
 nativeCheck($allocationRow && abs((float)$db->fetch_object($allocationRow)->total-125.0)<0.000001,'Native checkout allocates only the enrollment obligation from native payment truth');
 $finalizedAgain=$nativeCheckout->finalizeNativeCheckout((int) $nativeCheckoutResult['checkout_session_id']);
