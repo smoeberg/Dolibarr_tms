@@ -115,8 +115,8 @@ class modTraining extends DolibarrModules
     {
         $table = $this->db->prefix().'training_enrollment';
         $res = $this->db->query(
-            "SELECT column_type FROM information_schema.columns WHERE table_schema=DATABASE()".
-            " AND table_name='".$this->db->escape($table)."' AND column_name='status'"
+            "SELECT column_type FROM information_schema.columns WHERE table_schema = DATABASE()".
+            " AND table_name = '".$this->db->escape($table)."' AND column_name = 'status'"
         );
         if (!$res) {
             $this->error = 'Training enrollment status migration could not inspect schema.';
