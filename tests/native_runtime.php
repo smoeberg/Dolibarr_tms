@@ -233,14 +233,17 @@ nativeCheck(
 );
 $observeAgain=$nativeCheckout->observeNativePayment((int) $nativeCheckoutResult['checkout_session_id']);
 nativeCheck($observeAgain['status']==='paiement_present' && $observeAgain['payment_id']===$finalPaymentId && abs($observeAgain['paid_amount']-125.0)<0.000001,'Native paiement_present observation is idempotent');
-// A8 ARCH-02 two-transaction regression: T1 must commit hold conversion + PENDING_ENROLLMENT,
-// while T2 confirmation/allocation/snapshot must be a separate transaction.
+// A8 ARCH-02 two-transaction regression: T1 must atomically convert the hold and create PENDING_ENROLLMENT;
+// T2 confirmation/allocation/snapshot is a separate transaction.
+// T1 injection is deliberately the enrollment audit emitted by writeConfirmed() while confirmReservation()
+// is still inside its transaction, before that transaction can commit. Failing at the later SeatHold audit
+// would not prove that the enrollment write itself participates in T1 atomicity.
 // These MySQL triggers inject deterministic audit failures without changing product code.
 $a8RegressionFailures=array();
 $trainingAuditTable=$db->prefix().'training_audit';
 $t1Trigger='training_ci_fail_t1_audit';
 $t1TriggerSql='CREATE TRIGGER '.$t1Trigger.' BEFORE INSERT ON '.$trainingAuditTable.
-    " FOR EACH ROW BEGIN IF NEW.object_type = 'seat_hold' AND NEW.action = 'converted' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'CI_T1_AUDIT_FAILURE'; END IF; END";
+    " FOR EACH ROW BEGIN IF NEW.object_type = 'enrollment' AND NEW.action = 'confirmed' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'CI_T1_AUDIT_FAILURE'; END IF; END";
 nativeCheck((bool)$db->query($t1TriggerSql),'Install T1 audit-failure trigger');
 $t1Error='';
 try {
