@@ -8,6 +8,7 @@ if (getenv('CI') !== 'true') {
     throw new RuntimeException('Disposable CI environment required');
 }
 $sessionId = (int) ($argv[1] ?? 0);
+$mode = (string) ($argv[2] ?? 'finalize');
 if ($sessionId < 1) {
     throw new InvalidArgumentException('Checkout session fixture required');
 }
@@ -44,6 +45,18 @@ $invoiceRows = $store->rows(
 );
 if (!$invoiceRows || (int) $invoiceRows[0]->paye !== 0) {
     throw new RuntimeException('HTTP checkout invoice is missing or unexpectedly already paid');
+}
+if ($mode === 'inspect') {
+    echo json_encode(array(
+        'checkout_session_id' => $checkoutId,
+        'invoice_id' => $invoiceId,
+        'invoice_ref' => (string) $checkout->native_commercial_object_ref,
+        'status' => (string) $checkout->status,
+    ), JSON_THROW_ON_ERROR).PHP_EOL;
+    exit(0);
+}
+if ($mode !== 'finalize') {
+    throw new InvalidArgumentException('Unknown checkout helper mode');
 }
 $methods = $store->rows('SELECT id FROM '.$db->prefix().'c_paiement WHERE active=1 ORDER BY id LIMIT 1');
 if (!$methods) {
