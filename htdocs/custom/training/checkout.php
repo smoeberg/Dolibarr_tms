@@ -78,6 +78,9 @@ if ($action === 'submitParticipants' && $sessionId) {
         header('Location: '.dol_buildpath('/training/checkout.php', 1).'?session_id='.$sessionId.'&hold_id='.$seatHold['hold_id'].'&action=createPayment');
         exit;
     } catch (Throwable $e) {
+        // Keep the public response generic, but record the underlying exception
+        // so native HTTP failures can be diagnosed from the CI PHP server log.
+        error_log('[training-checkout] submitParticipants failed: '.get_class($e).': '.$e->getMessage().' at '.$e->getFile().':'.$e->getLine());
         $error = trainingError($e);
         showParticipantForm($access, $store, $sessionId, $error);
         exit;
