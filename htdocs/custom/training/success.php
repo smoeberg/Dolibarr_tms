@@ -52,7 +52,7 @@ if ($sessionId) {
         print '<tr><td>'.$langs->trans('Status').'</td><td>'.trainingEscape($langs->trans('TrainingSession'.ucfirst($session->status))).'</td></tr>';
         print '</table>';
     } catch (Throwable $e) {
-        // Session not found, show generic success
+        // Session not found; keep the page in pending state
     }
 }
 
@@ -61,7 +61,7 @@ if ($checkoutSessionId) {
     try {
         global $db;
         $sql = 'SELECT * FROM '.$db->prefix().'training_checkout_session';
-        $sql .= ' WHERE rowid='.$checkoutSessionId.' AND entity='.$store->access->entity();
+        $sql .= ' WHERE rowid='.$checkoutSessionId.' AND fk_session='.$sessionId.' AND entity='.$store->access->entity();
         
         $result = $db->query($sql);
         if ($result && $row = $db->fetch_object($result)) {
