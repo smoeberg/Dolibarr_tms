@@ -51,6 +51,7 @@ if ($sessionId && $action !== 'submitParticipants' && $action !== 'createPayment
 if ($action === 'submitParticipants' && $sessionId) {
     try {
         $billing = validateBillingDetails(GETPOST('billing', 'array'));
+        validateParticipantInput($participants);
         $customerService = new TrainingCheckoutCustomerService($db, $user, (int) $conf->entity);
         $billingIdentity = $customerService->resolveBillingCustomer($billing);
         $participantData = validateParticipants($participants, $customerService, (int) $billingIdentity['customer_id'], (int) $billingIdentity['contact_id']);
@@ -437,6 +438,34 @@ function validateBillingDetails(array $billing): array
         throw new RuntimeException('TrainingCheckoutInvalidBillingDetails');
     }
     return array('first_name' => $first, 'last_name' => $last, 'email' => $email, 'phone' => $phone);
+}
+
+/**
+ * Validate all attendee fields before persisting a billing customer/contact.
+ */
+function validateParticipantInput(array $participants): void
+{
+    if (empty($participants) || count($participants) > 10) {
+        throw new RuntimeException('TrainingCheckoutAtLeastOneParticipant');
+    }
+    foreach ($participants as $participant) {
+        $first = trim((string) ($participant['first_name'] ?? ''));
+        $last = trim((string) ($participant['last_name'] ?? ''));
+        $email = strtolower(trim((string) ($participant['email'] ?? '')));
+        $phone = trim((string) ($participant['phone'] ?? ''));
+        if ($first === '' || strlen($first) > 128) {
+            throw new RuntimeException('TrainingCheckoutInvalidFirstName');
+        }
+        if ($last === '' || strlen($last) > 128) {
+            throw new RuntimeException('TrainingCheckoutInvalidLastName');
+        }
+        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw new RuntimeException('TrainingCheckoutInvalidEmail');
+        }
+        if (strlen($phone) > 64) {
+            throw new RuntimeException('TrainingCheckoutInvalidParticipants');
+        }
+    }
 }
 
 /**
