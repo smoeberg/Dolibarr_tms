@@ -451,10 +451,17 @@ function findOrCreateContact(array $participant): int
     $firstName = trim($participant['first_name']);
     $lastName = trim($participant['last_name']);
     
+    // Restrict contact lookup to entities visible to the current Dolibarr context.
+    // llx_entity has no generic "active" column in supported Dolibarr versions.
+    $contactEntities = getEntity('contact');
+    if (!preg_match('/^\\d+(,\\d+)*$/', (string) $contactEntities)) {
+        throw new RuntimeException('TrainingCheckoutExistingBillingContactRequired');
+    }
+
     // Try to find existing contact by email
     if (!empty($email)) {
         $sql = 'SELECT rowid FROM '.$db->prefix().'socpeople';
-        $sql .= ' WHERE email='.$db->quote($email).' AND entity IN (SELECT entity FROM '.$db->prefix().'entity WHERE active=1)';
+        $sql .= ' WHERE email='.$db->quote($email).' AND entity IN ('.$contactEntities.')';
         
         $result = $db->query($sql);
         if ($result && $row = $db->fetch_object($result)) {
@@ -465,7 +472,7 @@ function findOrCreateContact(array $participant): int
     // Try to find by name
     $sql = 'SELECT rowid FROM '.$db->prefix().'socpeople';
     $sql .= ' WHERE firstname='.$db->quote($firstName).' AND lastname='.$db->quote($lastName);
-    $sql .= ' AND entity IN (SELECT entity FROM '.$db->prefix().'entity WHERE active=1)';
+    $sql .= ' AND entity IN ('.$contactEntities.')';
     
     $result = $db->query($sql);
     if ($result && $row = $db->fetch_object($result)) {
