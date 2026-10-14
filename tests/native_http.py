@@ -145,7 +145,7 @@ with (repo / '.ci/http.log').open('w') as log:
             'participants[0][phone]': ''
         }
         code, location, body = request_redirect(no_redirect, '/custom/training/checkout.php', participant_fields)
-        response_excerpt = unescape(body.split('</head>', 1)[-1])[:1800]
+        response_excerpt = re.sub(r'\\s+', ' ', re.sub(r'<[^>]+>', ' ', unescape(body))).strip()[-1800:]
         assert code in (302, 303) and location, f'HTTP reservation did not redirect to payment step: status={code}; response={response_excerpt}'
         payment_step = urljoin(base + '/', location)
         parsed_step = urlparse(payment_step)
