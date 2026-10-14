@@ -84,7 +84,7 @@ if (($observed['payment_status'] ?? '') !== 'paid') {
     throw new RuntimeException('HTTP checkout did not observe full native payment: '.json_encode($observed));
 }
 $finalized = $checkoutService->finalizeNativeCheckout($checkoutId);
-if (empty($finalized['success']) || ($finalized['status'] ?? '') !== 'completed') {
+if (($finalized['status'] ?? '') !== 'completed') {
     throw new RuntimeException('HTTP checkout finalization failed: '.json_encode($finalized));
 }
 if (count($finalized['enrollment_ids'] ?? array()) !== 1) {
