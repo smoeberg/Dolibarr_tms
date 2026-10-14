@@ -458,5 +458,25 @@ nativeCheck($otherContactId>0,'Second native contact for HTTP reservation form')
 $httpSession=$scheduling->create($version,'HTTP-SEAT-CI','HTTP reservation form',2,'Europe/Copenhagen');
 $scheduling->replaceSlots($httpSession,array(array('start'=>'2026-10-20T09:00:00+02:00','end'=>'2026-10-20T10:00:00+02:00')));
 $scheduling->changeStatus($httpSession,'open');
-file_put_contents(__DIR__.'/../.ci/native-fixture.json',json_encode(array('product'=>$productId,'session'=>$session,'slot'=>$slot,'enrollment'=>$enrollment,'company'=>$companyId,'reservation_session'=>$httpSession,'contact'=>$contactId,'other_contact'=>$otherContactId)));
+
+// Dedicated fixture for the real HTTP checkout -> native invoice flow.
+// The contact is an existing billing contact because checkout intentionally
+// refuses to create an unlinked billing identity.
+$checkoutHttpContact=new Contact($db);
+$checkoutHttpContact->firstname='HTTP';
+$checkoutHttpContact->lastname='Checkout';
+$checkoutHttpContact->email='http-checkout@example.test';
+$checkoutHttpContact->statut=1;
+$checkoutHttpContact->socid=$companyId;
+$checkoutHttpContactId=$checkoutHttpContact->create($user);
+nativeCheck($checkoutHttpContactId>0,'Native HTTP checkout billing contact creation: '.$checkoutHttpContact->error);
+$checkoutHttpSession=$scheduling->create($version,'HTTP-CHECKOUT-CI','HTTP checkout end-to-end',2,'Europe/Copenhagen');
+$scheduling->replaceSlots($checkoutHttpSession,array(array('start'=>'2026-10-24T09:00:00+02:00','end'=>'2026-10-24T10:00:00+02:00')));
+$scheduling->changeStatus($checkoutHttpSession,'open');
+file_put_contents(__DIR__.'/../.ci/native-fixture.json',json_encode(array(
+    'product'=>$productId,'session'=>$session,'slot'=>$slot,'enrollment'=>$enrollment,
+    'company'=>$companyId,'reservation_session'=>$httpSession,'contact'=>$contactId,
+    'other_contact'=>$otherContactId,'checkout_session'=>$checkoutHttpSession,
+    'checkout_contact'=>$checkoutHttpContactId,'checkout_email'=>'http-checkout@example.test'
+)));
 echo 'Native Dolibarr installation and lifecycle checks passed.'.PHP_EOL;
