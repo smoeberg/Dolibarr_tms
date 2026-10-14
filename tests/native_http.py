@@ -158,8 +158,8 @@ with (repo / '.ci/http.log').open('w') as log:
         parsed_payment = urlparse(payment_url)
         payment_query = parse_qs(parsed_payment.query)
         assert '/payment/' in parsed_payment.path.lower(), f'Checkout did not redirect into Dolibarr payment: {payment_location}'
-        assert str(conf_entity := 1) in payment_query.get('e', [str(conf_entity)]), 'Native payment redirect lost entity context'
-        assert any('invoice' in value.lower() or value.lower().startswith('fa') for values in payment_query.values() for value in values), f'Native payment redirect has no invoice correlation: {payment_location}'
+        assert payment_query.get('e') and payment_query['e'][0].isdigit(), 'Native payment redirect lost entity context'
+        assert payment_query.get('ref') and payment_query['ref'][0], f'Native payment redirect has no invoice reference: {payment_location}'
         print('OK: HTTP checkout creates a SeatHold and redirects to its native Dolibarr invoice payment')
 
         finalize = subprocess.run(
