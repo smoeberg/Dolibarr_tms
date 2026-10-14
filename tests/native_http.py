@@ -159,6 +159,14 @@ with (repo / '.ci/http.log').open('w') as log:
         assert parsed_step.path.endswith('/custom/training/checkout.php') and step_query.get('action') == ['createPayment'], f'Unexpected checkout continuation: {location}'
         assert step_query.get('hold_id') and step_query.get('session_id') == [str(fixture['checkout_session'])], 'SeatHold identity missing from checkout continuation'
 
+        customer_gate = subprocess.run(
+            ['php', str(repo / 'tests/native_checkout_customer.php'), fixture['checkout_email'], 'HTTP', 'Checkout', ''],
+            cwd=repo, capture_output=True, text=True, timeout=60
+        )
+        if customer_gate.returncode:
+            raise RuntimeError('Checkout customer idempotency gate failed: ' + customer_gate.stdout + customer_gate.stderr)
+        assert 'one customer and one linked contact' in customer_gate.stdout, 'Customer idempotency gate did not report success'
+
         code, payment_location, body = request_redirect(no_redirect, payment_step)
         assert code in (302, 303) and payment_location, f'Checkout did not redirect to native Dolibarr payment: status={code}'
         payment_url = urljoin(base + '/', payment_location)
