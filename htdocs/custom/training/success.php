@@ -15,11 +15,30 @@ $store = new TrainingStore($db, $access);
 $sessionId = GETPOSTINT('session_id');
 $checkoutSessionId = GETPOSTINT('checkout_session_id');
 
-llxHeader('', $langs->trans('TrainingPaymentSuccessful'));
+// A browser return URL is not payment proof. Only show success after the
+// native invoice is fully paid and the durable checkout finalizer has committed.
+$paymentConfirmed = false;
+if ($sessionId > 0 && $checkoutSessionId > 0) {
+    $sql = 'SELECT c.status, f.paye FROM '.$db->prefix().'training_checkout_session c';
+    $sql .= ' INNER JOIN '.$db->prefix().'facture f ON f.rowid=c.native_commercial_object_id AND f.entity=c.entity';
+    $sql .= ' WHERE c.rowid='.$checkoutSessionId.' AND c.fk_session='.$sessionId;
+    $sql .= ' AND c.entity='.$store->access->entity().' AND c.native_commercial_object_type=\'invoice\'';
+    $result = $db->query($sql);
+    if ($result && ($row = $db->fetch_object($result))) {
+        $paymentConfirmed = ((string) $row->status === 'completed' && (int) $row->paye === 1);
+    }
+}
 
-print '<div class="successBox">';
-print '<h1>'.$langs->trans('TrainingPaymentSuccessful').'</h1>';
-print '<p class="success">'.img_picto('tick.png', $langs->trans('Success')).' '.$langs->trans('TrainingPaymentReceived').'</p>';
+$pageTitle = $paymentConfirmed ? $langs->trans('TrainingPaymentSuccessful') : 'Payment confirmation pending';
+llxHeader('', $pageTitle);
+
+print $paymentConfirmed ? '<div class="successBox">' : '<div class="infoBox">';
+print '<h1>'.($paymentConfirmed ? $langs->trans('TrainingPaymentSuccessful') : 'Payment confirmation pending').'</h1>';
+if ($paymentConfirmed) {
+    print '<p class="success">'.img_picto('tick.png', $langs->trans('Success')).' '.$langs->trans('TrainingPaymentReceived').'</p>';
+} else {
+    print '<p class="info">The payment has not yet been confirmed. Please refresh this page shortly. Do not submit another payment.</p>';
+}
 
 // Show session details
 if ($sessionId) {
@@ -33,7 +52,7 @@ if ($sessionId) {
         print '<tr><td>'.$langs->trans('Status').'</td><td>'.trainingEscape($langs->trans('TrainingSession'.ucfirst($session->status))).'</td></tr>';
         print '</table>';
     } catch (Throwable $e) {
-        // Session not found, show generic success
+        // Session not found; keep the page in pending state
     }
 }
 
@@ -42,7 +61,7 @@ if ($checkoutSessionId) {
     try {
         global $db;
         $sql = 'SELECT * FROM '.$db->prefix().'training_checkout_session';
-        $sql .= ' WHERE rowid='.$checkoutSessionId.' AND entity='.$store->access->entity();
+        $sql .= ' WHERE rowid='.$checkoutSessionId.' AND fk_session='.$sessionId.' AND entity='.$store->access->entity();
         
         $result = $db->query($sql);
         if ($result && $row = $db->fetch_object($result)) {
@@ -60,7 +79,7 @@ if ($checkoutSessionId) {
 }
 
 // Show participants
-if ($checkoutSessionId) {
+if ($paymentConfirmed && $checkoutSessionId) {
     try {
         global $db;
         $sql = 'SELECT * FROM '.$db->prefix().'training_checkout_participant';
@@ -90,10 +109,12 @@ if ($checkoutSessionId) {
     }
 }
 
-print '<div class="info">';
-print '<p>'.$langs->trans('TrainingConfirmationEmailSent').'</p>';
-print '<p>'.$langs->trans('TrainingYouWillReceive').'</p>';
-print '</div>';
+if ($paymentConfirmed) {
+    print '<div class="info">';
+    print '<p>'.$langs->trans('TrainingConfirmationEmailSent').'</p>';
+    print '<p>'.$langs->trans('TrainingYouWillReceive').'</p>';
+    print '</div>';
+}
 
 // Action buttons
 print '<div class="center">';

@@ -13,6 +13,7 @@
 
 require_once __DIR__.'/lib/ui.lib.php';
 require_once __DIR__.'/class/trainingcheckoutservice.class.php';
+require_once __DIR__.'/class/trainingcheckoutcustomerservice.class.php';
 
 $access = trainingAccess();
 $store = new TrainingStore($db, $access);
@@ -49,13 +50,18 @@ if ($sessionId && $action !== 'submitParticipants' && $action !== 'createPayment
 
 if ($action === 'submitParticipants' && $sessionId) {
     try {
-        $participantData = validateParticipants($participants);
-        
+        $billing = validateBillingDetails(GETPOST('billing', 'array'));
+        validateParticipantInput($participants);
+        $customerService = new TrainingCheckoutCustomerService($db, $user, (int) $conf->entity);
+        $billingIdentity = $customerService->resolveBillingCustomer($billing);
+        $participantData = validateParticipants($participants, $customerService, (int) $billingIdentity['customer_id'], (int) $billingIdentity['contact_id']);
+
         if (empty($participantData)) {
             throw new RuntimeException('TrainingCheckoutAtLeastOneParticipant');
         }
-        
-        // Create seat hold
+
+        // Create seat hold only after billing identity and participant contacts
+        // are resolved. Email-keyed advisory locks make retries reuse identities.
         $contactIds = array_map(function($p) { return (int) $p['contact_id']; }, $participantData);
         $seatHold = $checkout->createSeatHold($sessionId, $contactIds, 15);
         
@@ -72,6 +78,9 @@ if ($action === 'submitParticipants' && $sessionId) {
         header('Location: '.dol_buildpath('/training/checkout.php', 1).'?session_id='.$sessionId.'&hold_id='.$seatHold['hold_id'].'&action=createPayment');
         exit;
     } catch (Throwable $e) {
+        // Keep the public response generic, but record the underlying exception
+        // so native HTTP failures can be diagnosed from the CI PHP server log.
+        error_log('[training-checkout] submitParticipants failed: '.get_class($e).': '.$e->getMessage().' at '.$e->getFile().':'.$e->getLine());
         $error = trainingError($e);
         showParticipantForm($access, $store, $sessionId, $error);
         exit;
@@ -293,6 +302,15 @@ function showParticipantForm(TrainingAccess $access, TrainingStore $store, int $
         print '<input type="hidden" name="session_id" value="'.$sessionId.'">';
         print '<input type="hidden" name="action" value="submitParticipants">';
         
+        // Buyer/billing identity is separate from the people attending.
+        $billingValues = GETPOST('billing', 'array');
+        print '<h2>'.$langs->trans('TrainingBillingDetails').'</h2>';
+        foreach (array('first_name' => 'FirstName', 'last_name' => 'LastName', 'email' => 'Email', 'phone' => 'Phone') as $field => $label) {
+            $value = trainingEscape($billingValues[$field] ?? '');
+            $type = $field === 'email' ? 'email' : 'text';
+            print '<p><label>'.$langs->trans($label).' <input type="'.$type.'" name="billing['.$field.']" value="'.$value.'" required></label></p>';
+        }
+
         // Existing participants (if any)
         $existingParticipants = GETPOST('participants', 'array');
         $participantCount = max(1, count($existingParticipants ?? array()));
@@ -402,76 +420,95 @@ function printParticipantRow(int $index, array $fields, array $values = array())
 }
 
 /**
- * Validate and process participant data.
+ * Validate buyer billing identity. Billing email is the idempotency key.
  */
-function validateParticipants(array $participants): array
+function validateBillingDetails(array $billing): array
 {
-    $validated = array();
-    
-    if (empty($participants)) {
-        throw new RuntimeException('TrainingCheckoutAtLeastOneParticipant');
+    $first = trim((string) ($billing['first_name'] ?? ''));
+    $last = trim((string) ($billing['last_name'] ?? ''));
+    $email = strtolower(trim((string) ($billing['email'] ?? '')));
+    $phone = trim((string) ($billing['phone'] ?? ''));
+    if ($first === '' || strlen($first) > 128) {
+        throw new RuntimeException('TrainingCheckoutInvalidBillingDetails');
     }
-    
-    foreach ($participants as $participant) {
-        if (empty($participant['first_name']) || strlen($participant['first_name']) > 128) {
-            throw new RuntimeException('TrainingCheckoutInvalidFirstName');
-        }
-        
-        if (empty($participant['last_name']) || strlen($participant['last_name']) > 128) {
-            throw new RuntimeException('TrainingCheckoutInvalidLastName');
-        }
-        
-        if (!empty($participant['email']) && !filter_var($participant['email'], FILTER_VALIDATE_EMAIL)) {
-            throw new RuntimeException('TrainingCheckoutInvalidEmail');
-        }
-        
-        // Find or create contact
-        $contactId = findOrCreateContact($participant);
-        
-        $validated[] = array(
-            'contact_id' => $contactId,
-            'first_name' => trim($participant['first_name']),
-            'last_name' => trim($participant['last_name']),
-            'email' => trim($participant['email'] ?? ''),
-            'phone' => trim($participant['phone'] ?? '')
-        );
+    if ($last === '' || strlen($last) > 128) {
+        throw new RuntimeException('TrainingCheckoutInvalidBillingDetails');
     }
-    
-    return $validated;
+    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        throw new RuntimeException('TrainingCheckoutInvalidEmail');
+    }
+    if (strlen($phone) > 64) {
+        throw new RuntimeException('TrainingCheckoutInvalidBillingDetails');
+    }
+    return array('first_name' => $first, 'last_name' => $last, 'email' => $email, 'phone' => $phone);
 }
 
 /**
- * Find or create a contact based on email/name.
+ * Validate all attendee fields before persisting a billing customer/contact.
  */
-function findOrCreateContact(array $participant): int
+function validateParticipantInput(array $participants): void
 {
-    global $db;
-    
-    $email = trim($participant['email'] ?? '');
-    $firstName = trim($participant['first_name']);
-    $lastName = trim($participant['last_name']);
-    
-    // Try to find existing contact by email
-    if (!empty($email)) {
-        $sql = 'SELECT rowid FROM '.$db->prefix().'socpeople';
-        $sql .= ' WHERE email='.$db->quote($email).' AND entity IN (SELECT entity FROM '.$db->prefix().'entity WHERE active=1)';
-        
-        $result = $db->query($sql);
-        if ($result && $row = $db->fetch_object($result)) {
-            return (int) $row->rowid;
+    if (empty($participants) || count($participants) > 10) {
+        throw new RuntimeException('TrainingCheckoutAtLeastOneParticipant');
+    }
+    foreach ($participants as $participant) {
+        $first = trim((string) ($participant['first_name'] ?? ''));
+        $last = trim((string) ($participant['last_name'] ?? ''));
+        $email = strtolower(trim((string) ($participant['email'] ?? '')));
+        $phone = trim((string) ($participant['phone'] ?? ''));
+        if ($first === '' || strlen($first) > 128) {
+            throw new RuntimeException('TrainingCheckoutInvalidFirstName');
+        }
+        if ($last === '' || strlen($last) > 128) {
+            throw new RuntimeException('TrainingCheckoutInvalidLastName');
+        }
+        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw new RuntimeException('TrainingCheckoutInvalidEmail');
+        }
+        if (strlen($phone) > 64) {
+            throw new RuntimeException('TrainingCheckoutInvalidParticipants');
         }
     }
-    
-    // Try to find by name
-    $sql = 'SELECT rowid FROM '.$db->prefix().'socpeople';
-    $sql .= ' WHERE firstname='.$db->quote($firstName).' AND lastname='.$db->quote($lastName);
-    $sql .= ' AND entity IN (SELECT entity FROM '.$db->prefix().'entity WHERE active=1)';
-    
-    $result = $db->query($sql);
-    if ($result && $row = $db->fetch_object($result)) {
-        return (int) $row->rowid;
-    }
-    
-    throw new RuntimeException('TrainingCheckoutExistingBillingContactRequired');
 }
 
+/**
+ * Validate attendee data and idempotently associate each contact with the
+ * buyer's billing customer. An email already attached to another customer is
+ * rejected rather than silently reassigned.
+ */
+function validateParticipants(array $participants, TrainingCheckoutCustomerService $customers, int $customerId, int $billingContactId): array
+{
+    if (empty($participants) || count($participants) > 10) {
+        throw new RuntimeException('TrainingCheckoutAtLeastOneParticipant');
+    }
+    $validated = array();
+    foreach ($participants as $participant) {
+        $first = trim((string) ($participant['first_name'] ?? ''));
+        $last = trim((string) ($participant['last_name'] ?? ''));
+        $email = strtolower(trim((string) ($participant['email'] ?? '')));
+        $phone = trim((string) ($participant['phone'] ?? ''));
+        if ($first === '' || strlen($first) > 128) {
+            throw new RuntimeException('TrainingCheckoutInvalidFirstName');
+        }
+        if ($last === '' || strlen($last) > 128) {
+            throw new RuntimeException('TrainingCheckoutInvalidLastName');
+        }
+        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw new RuntimeException('TrainingCheckoutInvalidEmail');
+        }
+        if (strlen($phone) > 64) {
+            throw new RuntimeException('TrainingCheckoutInvalidParticipants');
+        }
+        $contactId = $customers->resolveParticipantContact(array(
+            'first_name' => $first, 'last_name' => $last, 'email' => $email, 'phone' => $phone
+        ), $customerId, $billingContactId);
+        $validated[] = array(
+            'contact_id' => $contactId,
+            'first_name' => $first,
+            'last_name' => $last,
+            'email' => $email,
+            'phone' => $phone
+        );
+    }
+    return $validated;
+}
