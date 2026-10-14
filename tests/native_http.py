@@ -162,6 +162,18 @@ with (repo / '.ci/http.log').open('w') as log:
         assert payment_query.get('ref') and payment_query['ref'][0], f'Native payment redirect has no invoice reference: {payment_location}'
         print('OK: HTTP checkout creates a SeatHold and redirects to its native Dolibarr invoice payment')
 
+        inspect = subprocess.run(
+            ['php', str(repo / 'tests/native_checkout_finalize.php'), str(fixture['checkout_session']), 'inspect'],
+            cwd=repo, capture_output=True, text=True, timeout=60
+        )
+        if inspect.returncode:
+            raise RuntimeError('Could not inspect HTTP-created checkout: ' + inspect.stdout + inspect.stderr)
+        checkout_before_payment = json.loads(inspect.stdout.strip().splitlines()[-1])
+        success_path = f'/custom/training/success.php?session_id={fixture["checkout_session"]}&checkout_session_id={checkout_before_payment["checkout_session_id"]}'
+        pending_page = request(anonymous, success_path)
+        assert 'Payment confirmation pending' in unescape(pending_page), 'Unpaid checkout must not display a success confirmation'
+        assert 'TrainingPaymentReceived' not in unescape(pending_page), 'Unpaid checkout falsely claimed payment was received'
+
         finalize = subprocess.run(
             ['php', str(repo / 'tests/native_checkout_finalize.php'), str(fixture['checkout_session'])],
             cwd=repo, capture_output=True, text=True, timeout=60
@@ -173,10 +185,14 @@ with (repo / '.ci/http.log').open('w') as log:
         checkout_result = json.loads(result_file.read_text())
         success_path = f'/custom/training/success.php?session_id={fixture["checkout_session"]}&checkout_session_id={checkout_result["checkout_session_id"]}'
         success_page = request(anonymous, success_path)
+        assert 'TrainingPaymentReceived' not in unescape(success_page), 'Paid HTTP checkout confirmation rendered an unresolved translation key'
         assert 'HTTP' in unescape(success_page) and 'Checkout' in unescape(success_page), 'Paid HTTP checkout confirmation did not show the participant'
+        assert 'Payment confirmation pending' not in unescape(success_page), 'Completed checkout still displays pending confirmation'
+        failure_page = request(anonymous, f'/custom/training/failure.php?session_id={fixture["checkout_session"]}&error=payment_declined')
+        assert 'payment_declined' in unescape(failure_page), 'Payment failure endpoint did not render the supplied safe error code'
         payment_admin_page = request(anonymous, f'/custom/training/payment.php?id={fixture["checkout_session"]}')
         assert 'HTTP-CHECKOUT-CI' in unescape(payment_admin_page), 'Paid HTTP checkout session missing from native payment page'
-        print('OK: same HTTP-created checkout is paid through native Paiement and confirmed as an enrollment')
+        print('OK: same HTTP-created checkout refuses false success, observes native Paiement and confirms enrollment')
 
         outsider = build_opener(HTTPCookieProcessor(CookieJar()))
         page = request(outsider, f'/custom/training/attendance.php?id={fixture["session"]}&slot_id={fixture["slot"]}')
