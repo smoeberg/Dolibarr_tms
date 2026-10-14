@@ -96,6 +96,11 @@ final class TrainingCheckoutCustomerService
             // Existing contact identity takes precedence: never create a second
             // customer for an email already attached to a Dolibarr customer.
             $socid = $contactRow ? (int) $contactRow->fk_soc : 0;
+            if ($socid > 0 && $companyRow && $socid !== (int) $companyRow->rowid) {
+                // Existing data must not silently split one email identity
+                // across two Dolibarr third parties.
+                throw new RuntimeException('TrainingCheckoutCustomerIdentityConflict');
+            }
             if ($socid < 1 && $companyRow) {
                 $socid = (int) $companyRow->rowid;
             }
