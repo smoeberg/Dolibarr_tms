@@ -341,3 +341,12 @@ TrainingAdjust=Adjust
 TrainingRemove=Remove
 TrainingPaymentAmountHelp=Enter amount (e.g., 100.00 or 100)
 TrainingSyncDolibarr=Sync with Dolibarr
+
+TrainingBillingDetails=Billing details
+TrainingCheckoutInvalidBillingDetails=Please check the billing name and phone number.
+TrainingCheckoutCustomerLockUnavailable=Billing details are being processed. Please retry.
+TrainingCheckoutCustomerLookupFailed=Could not resolve the billing customer.
+TrainingCheckoutCustomerCreateFailed=Could not create the billing customer.
+TrainingCheckoutCustomerContactCreateFailed=Could not create the billing contact.
+TrainingCheckoutCustomerLinkFailed=Could not link the billing contact to the customer.
+TrainingCheckoutCustomerIdentityConflict=This email is already associated with another customer. Contact support to resolve it.
