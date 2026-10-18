@@ -54,17 +54,11 @@ $holdId = GETPOSTINT('hold_id');
 if ($holdId && $sessionId) {
     try {
         require_once __DIR__.'/class/trainingcheckoutservice.class.php';
-        require_once __DIR__.'/class/trainingstripeadapter.class.php';
+        $store = new TrainingStore($db, $access);
+        $checkout = new TrainingCheckoutService($store);
         
-        $stripeConfig = json_decode($conf->global->TRAINING_STRIPE_CONFIG ?? '{}', true);
-        if (!empty($stripeConfig['api_key']) && !empty($stripeConfig['webhook_secret'])) {
-            $store = new TrainingStore($db, $access);
-            $stripe = new TrainingStripeAdapter($store, $stripeConfig['api_key'], $stripeConfig['webhook_secret']);
-            $checkout = new TrainingCheckoutService($store, $stripe);
-            
-            // Release the seat hold
-            $checkout->releaseSeatHold($sessionId, $holdId, 'user_cancelled');
-        }
+        // Release the seat hold
+        $checkout->releaseSeatHold($sessionId, $holdId, 'user_cancelled');
     } catch (Throwable $e) {
         // Could not release seat hold
     }
